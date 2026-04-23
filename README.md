@@ -12,14 +12,14 @@ long-term guidance and improved user outcomes.
 ## GitHub Branch Structure
 The project source code is managed using GitHub to ensure version control,
 collaboration, traceability, and safe deployment practices.
-The team will follow a 3-Branch Workflow in github given as below: <br>
+The team will follow a 3-Branch Workflow in github given as below: <br><br>
 **● Main Branch:** Stable, finalized production-ready code used for final submission and
 demo presentation.<br>
 **● Develop Branch:** Latest, Active integrated version used for performing testing, and
 verifying functionality.<br>
 **● Hotfix Branches:** Problematic code that needs critical bug fixes or urgent issues
-found after testing or in the final demo version.<br><br>
-## ● Branch Protection Rules:<br>
+found after testing or in the final demo version.<br>
+### Branch Protection Rules:<br>
 o No direct pushes to main<br>
 o All merges via pull request with review<br>
 o At least one team member approval<br>
