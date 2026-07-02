@@ -1,16 +1,9 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
-import {
-  User,
-  Lock,
-  Bell,
-  Palette,
-  Eye,
-  Moon,
-  Sun,
-  PauseCircle,
-} from "lucide-react";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { createFileRoute, Link } from "@/lib/router-compat";
+import { useRef, useState } from "react";
+import { User, Lock, Bell, Palette, Eye, Moon, Sun, PauseCircle, Camera } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -26,6 +19,7 @@ import {
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
+import { supabase } from "@/supabaseClient";
 
 export const Route = createFileRoute("/settings")({
   head: () => ({ meta: [{ title: "Settings — GuideMe" }] }),
@@ -34,43 +28,101 @@ export const Route = createFileRoute("/settings")({
 
 function SettingsPage() {
   const { user, isAuthenticated } = useAuth();
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    if (!isAuthenticated) navigate({ to: "/login" });
-  }, [isAuthenticated, navigate]);
-
-  if (!isAuthenticated) return null;
   const isMentor = user?.role === "mentor";
 
   return (
-    <div className="container mx-auto max-w-3xl px-4 py-10">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Manage your profile, password, theme, privacy, and notifications.
-        </p>
-      </div>
+    <ProtectedRoute>
+      <div className="container mx-auto max-w-3xl px-4 py-10">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Manage your profile, password, theme, privacy, and notifications.
+          </p>
+        </div>
 
-      <div className="space-y-6">
-        <ProfileCard />
-        <ChangePasswordCard />
-        <ThemeCard />
-        {isMentor ? <HibernationCard /> : <PrivacyCard />}
-        <NotificationPreferencesCard />
+        <div className="space-y-6">
+          <ProfileCard />
+          <ChangePasswordCard />
+          <ThemeCard />
+          {isMentor ? <HibernationCard /> : <PrivacyCard />}
+          <NotificationPreferencesCard />
+        </div>
       </div>
-    </div>
+    </ProtectedRoute>
   );
 }
 
 function ProfileCard() {
-  const { user } = useAuth();
+  const { user, updateAvatar } = useAuth();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please select an image file.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Image must be under 5MB.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      updateAvatar(reader.result as string);
+      toast.success("Profile picture updated.");
+    };
+    reader.readAsDataURL(file);
+  };
+
   return (
     <Card className="p-6">
       <div className="mb-4 flex items-center gap-2">
         <User className="h-5 w-5 text-primary" />
         <h2 className="text-lg font-semibold">Profile</h2>
       </div>
+
+      <div className="mb-6 flex items-center gap-4">
+        <div className="relative">
+          <Avatar className="h-20 w-20 border-2 border-border">
+            {user?.avatar && <AvatarImage src={user.avatar} alt={user.name} />}
+            <AvatarFallback className="bg-gradient-primary text-2xl text-primary-foreground">
+              {user?.name?.[0]?.toUpperCase() ?? "U"}
+            </AvatarFallback>
+          </Avatar>
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            aria-label="Change profile picture"
+            className="absolute -bottom-1 -right-1 grid h-7 w-7 place-items-center rounded-full bg-gradient-primary text-primary-foreground shadow-elegant transition hover:opacity-90"
+          >
+            <Camera className="h-3.5 w-3.5" />
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleAvatarChange}
+          />
+        </div>
+        <div>
+          <p className="text-sm font-medium">Profile picture</p>
+          <p className="text-xs text-muted-foreground">
+            PNG, JPG up to 5MB. Click the camera icon to upload.
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="mt-2"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <Camera className="mr-1.5 h-3.5 w-3.5" /> Upload new
+          </Button>
+        </div>
+      </div>
+
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label>Full name</Label>
@@ -106,20 +158,56 @@ function ChangePasswordCard() {
   const [next, setNext] = useState("");
   const [confirm, setConfirm] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
     if (next.length < 8) {
       toast.error("New password must be at least 8 characters.");
       return;
     }
+
     if (next !== confirm) {
       toast.error("Passwords do not match.");
       return;
     }
-    toast.success("Password changed successfully.");
-    setCurrent("");
-    setNext("");
-    setConfirm("");
+
+    try {
+      // Step 1 - Verify current password by signing in
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (!user?.email) {
+        toast.error("Could not verify your identity.");
+        return;
+      }
+
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: user.email,
+        password: current,
+      });
+
+      if (signInError) {
+        toast.error("Current password is incorrect.");
+        return;
+      }
+
+      // Step 2 - Update to new password
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: next,
+      });
+
+      if (updateError) {
+        toast.error(updateError.message);
+        return;
+      }
+
+      toast.success("Password changed successfully.");
+      setCurrent("");
+      setNext("");
+      setConfirm("");
+
+    } catch (err) {
+      toast.error("Something went wrong. Please try again.");
+    }
   };
 
   return (

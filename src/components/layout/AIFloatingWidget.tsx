@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useRouterState, Link } from "@tanstack/react-router";
+import { useRouterState, Link } from "@/lib/router-compat";
 import { MessageCircle, X, Send, Sparkles, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
