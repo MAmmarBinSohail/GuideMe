@@ -1,5 +1,5 @@
-import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
-import { Moon, Sun, Sparkles, Menu, X, Bell } from "lucide-react";
+import { Link, useRouterState, useNavigate } from "@/lib/router-compat";
+import { Moon, Sun, Sparkles, Menu, X, Bell, LayoutDashboard, Settings as SettingsIcon, LogOut } from "lucide-react";
 import { useState } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -11,7 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 export function Navbar() {
   const { theme, toggleTheme } = useTheme();
@@ -81,6 +81,7 @@ export function Navbar() {
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="rounded-full">
                   <Avatar className="h-8 w-8">
+                    {user?.avatar && <AvatarImage src={user.avatar} alt={user.name} />}
                     <AvatarFallback className="bg-gradient-primary text-primary-foreground text-xs">
                       {user?.name?.[0]?.toUpperCase() ?? "U"}
                     </AvatarFallback>
@@ -94,13 +95,17 @@ export function Navbar() {
                 </div>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => navigate({ to: dashboardHref })}>
+                  <LayoutDashboard className="mr-2 h-4 w-4" />
                   Dashboard
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate({ to: "/notifications" })}>
                   <Bell className="mr-2 h-4 w-4" />
                   Notifications
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate({ to: "/settings" })}>Settings</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate({ to: "/settings" })}>
+                  <SettingsIcon className="mr-2 h-4 w-4" />
+                  Settings
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onClick={() => {
@@ -108,6 +113,7 @@ export function Navbar() {
                     navigate({ to: "/" });
                   }}
                 >
+                  <LogOut className="mr-2 h-4 w-4" />
                   Log out
                 </DropdownMenuItem>
               </DropdownMenuContent>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Link } from "@tanstack/react-router";
+import { Link } from "@/lib/router-compat";
 import {
   Bot,
   Users,
