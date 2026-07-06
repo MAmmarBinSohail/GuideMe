@@ -126,27 +126,43 @@ function ProfileCard() {
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label>Full name</Label>
-          <Input defaultValue={user?.name ?? ""} />
+          <Input
+            value={fullName}
+            onChange={(e) => setFullName(e.target.value)}
+          />
         </div>
         <div className="space-y-2">
           <Label>Email</Label>
-          <Input type="email" defaultValue={user?.email ?? ""} disabled />
+          <Input
+            type="email"
+            defaultValue={user?.email ?? ""}
+            disabled
+          />
         </div>
         <div className="space-y-2">
           <Label>Role</Label>
-          <Input defaultValue={user?.role ?? ""} disabled className="capitalize" />
+          <Input
+            defaultValue={user?.role ?? ""}
+            disabled
+            className="capitalize"
+          />
         </div>
         <div className="space-y-2">
           <Label>Phone</Label>
-          <Input placeholder="+92 300 1234567" />
+          <Input
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            placeholder="+92 300 1234567"
+          />
         </div>
       </div>
       <div className="mt-5 flex justify-end">
         <Button
+          disabled={saving}
           className="bg-gradient-primary text-primary-foreground hover:opacity-90"
-          onClick={() => toast.success("Profile updated.")}
+          onClick={handleSave}
         >
-          Save changes
+          {saving ? "Saving..." : "Save changes"}
         </Button>
       </div>
     </Card>
@@ -451,9 +467,47 @@ function HibernationCard() {
 }
 
 function NotificationPreferencesCard() {
+  const { user } = useAuth();
   const [email, setEmail] = useState(true);
   const [booking, setBooking] = useState(true);
   const [reminders, setReminders] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    async function loadPrefs() {
+      const { data } = await supabase
+        .from("notification_preferences")
+        .select("*")
+        .eq("user_id", user?.id)
+        .single();
+
+      if (data) {
+        setEmail(data.email_notifications ?? true);
+        setBooking(data.booking_alerts ?? true);
+        setReminders(data.reminder_alerts ?? true);
+      }
+    }
+    if (user) loadPrefs();
+  }, [user]);
+
+  async function handleSave() {
+    setSaving(true);
+    const { error } = await supabase
+      .from("notification_preferences")
+      .update({
+        email_notifications: email,
+        booking_alerts: booking,
+        reminder_alerts: reminders,
+      })
+      .eq("user_id", user?.id);
+
+    if (error) {
+      toast.error("Failed to save preferences.");
+    } else {
+      toast.success("Preferences saved.");
+    }
+    setSaving(false);
+  }
 
   return (
     <Card className="p-6">
@@ -485,10 +539,11 @@ function NotificationPreferencesCard() {
       </div>
       <div className="mt-5 flex justify-end">
         <Button
+          disabled={saving}
           className="bg-gradient-primary text-primary-foreground hover:opacity-90"
-          onClick={() => toast.success("Preferences saved.")}
+          onClick={handleSave}
         >
-          Save preferences
+          {saving ? "Saving..." : "Save preferences"}
         </Button>
       </div>
     </Card>

@@ -1,11 +1,6 @@
 import { createFileRoute, Link } from "@/lib/router-compat";
-<<<<<<< HEAD
-import { useState } from "react";
-import { Sparkles, Send, Lock } from "lucide-react";
-=======
 import { useState, useEffect, useRef } from "react";
 import { Sparkles, Send, Lock, Loader2 } from "lucide-react";
->>>>>>> 1d074f0 (feat: Mr.Guy de chatbot implementation complete)
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
