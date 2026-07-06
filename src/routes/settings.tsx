@@ -1,7 +1,6 @@
-import { supabase } from "@/supabaseClient";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { createFileRoute, Link } from "@/lib/router-compat";
-import { useRef, useState, useEffect } from "react";
+import { useRef, useState } from "react";
 import { User, Lock, Bell, Palette, Eye, Moon, Sun, PauseCircle, Camera } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -20,6 +19,7 @@ import {
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
+import { supabase } from "@/supabaseClient";
 
 export const Route = createFileRoute("/settings")({
   head: () => ({ meta: [{ title: "Settings — GuideMe" }] }),
@@ -55,30 +55,10 @@ function SettingsPage() {
 function ProfileCard() {
   const { user, updateAvatar } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [fullName, setFullName] = useState(user?.name ?? "");
-  const [phone, setPhone] = useState("");
-  const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    async function loadProfile() {
-      const { data } = await supabase
-        .from("profiles")
-        .select("full_name, phone")
-        .eq("id", user?.id)
-        .single();
-
-      if (data) {
-        setFullName(data.full_name ?? "");
-        setPhone(data.phone ?? "");
-      }
-    }
-    if (user) loadProfile();
-  }, [user]);
-
-  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     if (!file.type.startsWith("image/")) {
       toast.error("Please select an image file.");
       return;
@@ -87,58 +67,13 @@ function ProfileCard() {
       toast.error("Image must be under 5MB.");
       return;
     }
-
-    try {
-      // Upload to Supabase Storage
-      const fileExt = file.name.split(".").pop();
-      const filePath = `${user?.id}/avatar.${fileExt}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from("avatars")
-        .upload(filePath, file, { upsert: true });
-
-      if (uploadError) {
-        toast.error("Failed to upload image.");
-        return;
-      }
-
-      // Get public URL
-      const { data: urlData } = supabase.storage
-        .from("avatars")
-        .getPublicUrl(filePath);
-
-      const publicUrl = urlData.publicUrl;
-
-      // Save URL to profiles table
-      await supabase.from("profiles").update({ profile_picture_url: publicUrl }).eq("id", user?.id);
-
-      // Update local auth context
-      updateAvatar(publicUrl);
-
+    const reader = new FileReader();
+    reader.onload = () => {
+      updateAvatar(reader.result as string);
       toast.success("Profile picture updated.");
-
-    } catch (err) {
-      toast.error("Something went wrong.");
-    }
+    };
+    reader.readAsDataURL(file);
   };
-
-  async function handleSave() {
-    setSaving(true);
-    const { error } = await supabase
-      .from("profiles")
-      .update({
-        full_name: fullName,
-        phone: phone,
-      })
-      .eq("id", user?.id);
-
-    if (error) {
-      toast.error("Failed to update profile.");
-    } else {
-      toast.success("Profile updated successfully.");
-    }
-    setSaving(false);
-  }
 
   return (
     <Card className="p-6">
@@ -158,6 +93,7 @@ function ProfileCard() {
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
+            aria-label="Change profile picture"
             className="absolute -bottom-1 -right-1 grid h-7 w-7 place-items-center rounded-full bg-gradient-primary text-primary-foreground shadow-elegant transition hover:opacity-90"
           >
             <Camera className="h-3.5 w-3.5" />
@@ -173,7 +109,7 @@ function ProfileCard() {
         <div>
           <p className="text-sm font-medium">Profile picture</p>
           <p className="text-xs text-muted-foreground">
-            PNG, JPG up to 5MB.
+            PNG, JPG up to 5MB. Click the camera icon to upload.
           </p>
           <Button
             type="button"
