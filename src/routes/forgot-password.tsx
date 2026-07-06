@@ -1,10 +1,11 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@/lib/router-compat";
 import { useState } from "react";
 import { Mail, ArrowLeft, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
+import { supabase } from "@/supabaseClient";
 
 export const Route = createFileRoute("/forgot-password")({
   head: () => ({ meta: [{ title: "Forgot password — GuideMe" }] }),
@@ -14,10 +15,23 @@ export const Route = createFileRoute("/forgot-password")({
 function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Placeholder — wire to supabase.auth.resetPasswordForEmail on your machine.
+    setLoading(true);
+
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+
+    if (error) {
+      console.error("Reset password error:", error.message);
+    }
+
+    // Always show sent message for security
+    // Even if email doesnt exist we dont reveal that
+    setLoading(false);
     setSent(true);
   };
 
@@ -62,8 +76,12 @@ function ForgotPasswordPage() {
                 placeholder="you@example.com"
               />
             </div>
-            <Button type="submit" className="w-full bg-gradient-primary text-primary-foreground hover:opacity-90">
-              Send reset link
+            <Button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-gradient-primary text-primary-foreground hover:opacity-90"
+            >
+              {loading ? "Sending…" : "Send reset link"}
             </Button>
             <Button asChild variant="ghost" className="w-full">
               <Link to="/login">

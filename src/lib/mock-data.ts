@@ -13,6 +13,11 @@ export interface Mentor {
   avatar: string;
   tags: string[];
   expertiseAreas: string[];
+  /** True when the mentor has submitted (and passed) the verification form. */
+  verified: boolean;
+  yearsOfExperience?: number;
+  sessionLanguage?: "english" | "urdu" | "both";
+  portfolioUrl?: string;
 }
 
 export interface Session {
@@ -54,6 +59,7 @@ export const MOCK_MENTORS: Mentor[] = [
     avatar: avatar("Ayesha Khan"),
     tags: ["UX", "Portfolio", "Figma"],
     expertiseAreas: ["UX Design", "Product Design", "Portfolio Review"],
+    verified: true,
   },
   {
     id: "m2",
@@ -69,6 +75,7 @@ export const MOCK_MENTORS: Mentor[] = [
     avatar: avatar("Daniyal Ahmed"),
     tags: ["System Design", "FAANG", "Leadership"],
     expertiseAreas: ["System Design", "Backend", "Interviews"],
+    verified: true,
   },
   {
     id: "m3",
@@ -84,6 +91,7 @@ export const MOCK_MENTORS: Mentor[] = [
     avatar: avatar("Sara Iqbal"),
     tags: ["Startups", "Fundraising", "GTM"],
     expertiseAreas: ["Startups", "Fundraising", "Operations"],
+    verified: true,
   },
   {
     id: "m4",
@@ -99,6 +107,7 @@ export const MOCK_MENTORS: Mentor[] = [
     avatar: avatar("Omar Siddiqui"),
     tags: ["Mindset", "Habits", "Clarity"],
     expertiseAreas: ["Mindfulness", "Focus", "Habit Building"],
+    verified: true,
   },
   {
     id: "m5",
@@ -114,6 +123,7 @@ export const MOCK_MENTORS: Mentor[] = [
     avatar: avatar("Hina Raza"),
     tags: ["ML", "Python", "Interviews"],
     expertiseAreas: ["Data Science", "Machine Learning", "Python"],
+    verified: true,
   },
   {
     id: "m6",
@@ -129,6 +139,7 @@ export const MOCK_MENTORS: Mentor[] = [
     avatar: avatar("Bilal Tariq"),
     tags: ["Career", "Resume", "Coaching"],
     expertiseAreas: ["Career Planning", "Resume Review", "Interview Prep"],
+    verified: false,
   },
   {
     id: "m7",
@@ -144,6 +155,7 @@ export const MOCK_MENTORS: Mentor[] = [
     avatar: avatar("Mariam Yousaf"),
     tags: ["Thesis", "Scholarships", "GRE"],
     expertiseAreas: ["Thesis Writing", "Scholarships", "Study Abroad"],
+    verified: true,
   },
   {
     id: "m8",
@@ -159,6 +171,7 @@ export const MOCK_MENTORS: Mentor[] = [
     avatar: avatar("Hassan Ali"),
     tags: ["Management", "Hiring", "1:1s"],
     expertiseAreas: ["People Management", "Hiring", "Strategy"],
+    verified: true,
   },
   {
     id: "m9",
@@ -174,6 +187,7 @@ export const MOCK_MENTORS: Mentor[] = [
     avatar: avatar("Nadia Aslam"),
     tags: ["Mental Health", "Stress", "Wellness"],
     expertiseAreas: ["Mental Wellness", "Stress Management", "Therapy"],
+    verified: true,
   },
   {
     id: "m10",
@@ -189,6 +203,7 @@ export const MOCK_MENTORS: Mentor[] = [
     avatar: avatar("Usman Hassan"),
     tags: ["Investing", "Budgeting", "Planning"],
     expertiseAreas: ["Investing", "Personal Finance", "Retirement"],
+    verified: false,
   },
   {
     id: "m11",
@@ -204,6 +219,7 @@ export const MOCK_MENTORS: Mentor[] = [
     avatar: avatar("Zoya Mirza"),
     tags: ["Contracts", "IP", "Compliance"],
     expertiseAreas: ["Contracts", "Intellectual Property", "Compliance"],
+    verified: false,
   },
   {
     id: "m12",
@@ -219,6 +235,7 @@ export const MOCK_MENTORS: Mentor[] = [
     avatar: avatar("Faisal Rehman"),
     tags: ["Public Speaking", "English", "Writing"],
     expertiseAreas: ["Public Speaking", "Business English", "Writing"],
+    verified: true,
   },
   {
     id: "m13",
@@ -234,6 +251,7 @@ export const MOCK_MENTORS: Mentor[] = [
     avatar: avatar("Tahir Shah"),
     tags: ["CAD", "FYP", "Industry"],
     expertiseAreas: ["Mechanical Design", "CAD", "FYP Guidance"],
+    verified: false,
   },
 ];
 

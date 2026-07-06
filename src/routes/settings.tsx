@@ -1,16 +1,10 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
-import {
-  User,
-  Lock,
-  Bell,
-  Palette,
-  Eye,
-  Moon,
-  Sun,
-  PauseCircle,
-} from "lucide-react";
+import { supabase } from "@/supabaseClient";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { createFileRoute, Link } from "@/lib/router-compat";
+import { useRef, useState, useEffect } from "react";
+import { User, Lock, Bell, Palette, Eye, Moon, Sun, PauseCircle, Camera } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -34,67 +28,205 @@ export const Route = createFileRoute("/settings")({
 
 function SettingsPage() {
   const { user, isAuthenticated } = useAuth();
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    if (!isAuthenticated) navigate({ to: "/login" });
-  }, [isAuthenticated, navigate]);
-
-  if (!isAuthenticated) return null;
   const isMentor = user?.role === "mentor";
 
   return (
-    <div className="container mx-auto max-w-3xl px-4 py-10">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Manage your profile, password, theme, privacy, and notifications.
-        </p>
-      </div>
+    <ProtectedRoute>
+      <div className="container mx-auto max-w-3xl px-4 py-10">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Manage your profile, password, theme, privacy, and notifications.
+          </p>
+        </div>
 
-      <div className="space-y-6">
-        <ProfileCard />
-        <ChangePasswordCard />
-        <ThemeCard />
-        {isMentor ? <HibernationCard /> : <PrivacyCard />}
-        <NotificationPreferencesCard />
+        <div className="space-y-6">
+          <ProfileCard />
+          <ChangePasswordCard />
+          <ThemeCard />
+          {isMentor ? <HibernationCard /> : <PrivacyCard />}
+          <NotificationPreferencesCard />
+        </div>
       </div>
-    </div>
+    </ProtectedRoute>
   );
 }
 
 function ProfileCard() {
-  const { user } = useAuth();
+  const { user, updateAvatar } = useAuth();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [fullName, setFullName] = useState(user?.name ?? "");
+  const [phone, setPhone] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    async function loadProfile() {
+      const { data } = await supabase
+        .from("profiles")
+        .select("full_name, phone")
+        .eq("id", user?.id)
+        .single();
+
+      if (data) {
+        setFullName(data.full_name ?? "");
+        setPhone(data.phone ?? "");
+      }
+    }
+    if (user) loadProfile();
+  }, [user]);
+
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please select an image file.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Image must be under 5MB.");
+      return;
+    }
+
+    try {
+      // Upload to Supabase Storage
+      const fileExt = file.name.split(".").pop();
+      const filePath = `${user?.id}/avatar.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("avatars")
+        .upload(filePath, file, { upsert: true });
+
+      if (uploadError) {
+        toast.error("Failed to upload image.");
+        return;
+      }
+
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from("avatars")
+        .getPublicUrl(filePath);
+
+      const publicUrl = urlData.publicUrl;
+
+      // Save URL to profiles table
+      await supabase.from("profiles").update({ profile_picture_url: publicUrl }).eq("id", user?.id);
+
+      // Update local auth context
+      updateAvatar(publicUrl);
+
+      toast.success("Profile picture updated.");
+
+    } catch (err) {
+      toast.error("Something went wrong.");
+    }
+  };
+
+  async function handleSave() {
+    setSaving(true);
+    const { error } = await supabase
+      .from("profiles")
+      .update({
+        full_name: fullName,
+        phone: phone,
+      })
+      .eq("id", user?.id);
+
+    if (error) {
+      toast.error("Failed to update profile.");
+    } else {
+      toast.success("Profile updated successfully.");
+    }
+    setSaving(false);
+  }
+
   return (
     <Card className="p-6">
       <div className="mb-4 flex items-center gap-2">
         <User className="h-5 w-5 text-primary" />
         <h2 className="text-lg font-semibold">Profile</h2>
       </div>
+
+      <div className="mb-6 flex items-center gap-4">
+        <div className="relative">
+          <Avatar className="h-20 w-20 border-2 border-border">
+            {user?.avatar && <AvatarImage src={user.avatar} alt={user.name} />}
+            <AvatarFallback className="bg-gradient-primary text-2xl text-primary-foreground">
+              {user?.name?.[0]?.toUpperCase() ?? "U"}
+            </AvatarFallback>
+          </Avatar>
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="absolute -bottom-1 -right-1 grid h-7 w-7 place-items-center rounded-full bg-gradient-primary text-primary-foreground shadow-elegant transition hover:opacity-90"
+          >
+            <Camera className="h-3.5 w-3.5" />
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleAvatarChange}
+          />
+        </div>
+        <div>
+          <p className="text-sm font-medium">Profile picture</p>
+          <p className="text-xs text-muted-foreground">
+            PNG, JPG up to 5MB.
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="mt-2"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <Camera className="mr-1.5 h-3.5 w-3.5" /> Upload new
+          </Button>
+        </div>
+      </div>
+
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label>Full name</Label>
-          <Input defaultValue={user?.name ?? ""} />
+          <Input
+            value={fullName}
+            onChange={(e) => setFullName(e.target.value)}
+          />
         </div>
         <div className="space-y-2">
           <Label>Email</Label>
-          <Input type="email" defaultValue={user?.email ?? ""} disabled />
+          <Input
+            type="email"
+            defaultValue={user?.email ?? ""}
+            disabled
+          />
         </div>
         <div className="space-y-2">
           <Label>Role</Label>
-          <Input defaultValue={user?.role ?? ""} disabled className="capitalize" />
+          <Input
+            defaultValue={user?.role ?? ""}
+            disabled
+            className="capitalize"
+          />
         </div>
         <div className="space-y-2">
           <Label>Phone</Label>
-          <Input placeholder="+92 300 1234567" />
+          <Input
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            placeholder="+92 300 1234567"
+          />
         </div>
       </div>
       <div className="mt-5 flex justify-end">
         <Button
+          disabled={saving}
           className="bg-gradient-primary text-primary-foreground hover:opacity-90"
-          onClick={() => toast.success("Profile updated.")}
+          onClick={handleSave}
         >
-          Save changes
+          {saving ? "Saving..." : "Save changes"}
         </Button>
       </div>
     </Card>
@@ -106,20 +238,56 @@ function ChangePasswordCard() {
   const [next, setNext] = useState("");
   const [confirm, setConfirm] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
     if (next.length < 8) {
       toast.error("New password must be at least 8 characters.");
       return;
     }
+
     if (next !== confirm) {
       toast.error("Passwords do not match.");
       return;
     }
-    toast.success("Password changed successfully.");
-    setCurrent("");
-    setNext("");
-    setConfirm("");
+
+    try {
+      // Step 1 - Verify current password by signing in
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (!user?.email) {
+        toast.error("Could not verify your identity.");
+        return;
+      }
+
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: user.email,
+        password: current,
+      });
+
+      if (signInError) {
+        toast.error("Current password is incorrect.");
+        return;
+      }
+
+      // Step 2 - Update to new password
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: next,
+      });
+
+      if (updateError) {
+        toast.error(updateError.message);
+        return;
+      }
+
+      toast.success("Password changed successfully.");
+      setCurrent("");
+      setNext("");
+      setConfirm("");
+
+    } catch (err) {
+      toast.error("Something went wrong. Please try again.");
+    }
   };
 
   return (
@@ -363,9 +531,47 @@ function HibernationCard() {
 }
 
 function NotificationPreferencesCard() {
+  const { user } = useAuth();
   const [email, setEmail] = useState(true);
   const [booking, setBooking] = useState(true);
   const [reminders, setReminders] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    async function loadPrefs() {
+      const { data } = await supabase
+        .from("notification_preferences")
+        .select("*")
+        .eq("user_id", user?.id)
+        .single();
+
+      if (data) {
+        setEmail(data.email_notifications ?? true);
+        setBooking(data.booking_alerts ?? true);
+        setReminders(data.reminder_alerts ?? true);
+      }
+    }
+    if (user) loadPrefs();
+  }, [user]);
+
+  async function handleSave() {
+    setSaving(true);
+    const { error } = await supabase
+      .from("notification_preferences")
+      .update({
+        email_notifications: email,
+        booking_alerts: booking,
+        reminder_alerts: reminders,
+      })
+      .eq("user_id", user?.id);
+
+    if (error) {
+      toast.error("Failed to save preferences.");
+    } else {
+      toast.success("Preferences saved.");
+    }
+    setSaving(false);
+  }
 
   return (
     <Card className="p-6">
@@ -397,10 +603,11 @@ function NotificationPreferencesCard() {
       </div>
       <div className="mt-5 flex justify-end">
         <Button
+          disabled={saving}
           className="bg-gradient-primary text-primary-foreground hover:opacity-90"
-          onClick={() => toast.success("Preferences saved.")}
+          onClick={handleSave}
         >
-          Save preferences
+          {saving ? "Saving..." : "Save preferences"}
         </Button>
       </div>
     </Card>
