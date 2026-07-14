@@ -69,15 +69,16 @@ export async function sendOnboardingMessage(
 }
 
 export async function sendConversationMessage(
-  conversationHistory,
-  userMessage,
-  onboardingData,
-  userName,
-  userRole
+  conversationHistory: any[],
+  userMessage: string,
+  onboardingData: Record<string, string>,
+  userName: string,
+  userRole: string,
+  mentorContext: string = ''
 ) {
   const prompt = userRole === 'mentor'
     ? getMentorConversationPrompt(userName, onboardingData)
-    : getMenteeConversationPrompt(userName, onboardingData);
+    : getMenteeConversationPrompt(userName, onboardingData, mentorContext);
 
   return await callGroq(prompt, conversationHistory, userMessage);
 }

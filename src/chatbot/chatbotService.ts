@@ -40,6 +40,78 @@ async function checkFAQ(userMessage) {
   return null;
 }
 
+async function fetchAvailableMentors() {
+  const { data, error } = await supabase
+    .from('mentor_profiles')
+    .select(`
+      id,
+      category,
+      bio,
+      expertise_areas,
+      initial_session_price,
+      is_free_first_session,
+      average_rating,
+      years_of_experience,
+      session_language,
+      profiles (
+        full_name,
+        is_verified
+      )
+    `)
+    .eq('is_available', true)
+    .order('average_rating', { ascending: false });
+
+  if (error || !data) return [];
+  return data;
+}
+
+function formatMentorsForPrompt(mentors: any[]) {
+  if (mentors.length === 0) {
+    return "No mentors are currently available on the platform.";
+  }
+
+  const grouped: Record<string, any[]> = {};
+
+  mentors.forEach((m) => {
+    const cat = m.category || 'other';
+    if (!grouped[cat]) grouped[cat] = [];
+    grouped[cat].push(m);
+  });
+
+  let result = "CURRENTLY AVAILABLE MENTORS ON GUIDEME:\n\n";
+
+  Object.entries(grouped).forEach(([category, list]) => {
+    result += `${category.toUpperCase()} MENTORS:\n`;
+    list.forEach((m) => {
+      const name = m.profiles?.full_name || 'Unknown';
+      const verified = m.profiles?.is_verified ? '✓ Verified' : '';
+      const price = m.is_free_first_session
+        ? 'Free first session'
+        : `PKR ${m.initial_session_price} per session`;
+      const rating = m.average_rating
+        ? `${m.average_rating} stars`
+        : 'New mentor';
+      const expertise = m.expertise_areas?.join(', ') || '';
+      const experience = m.years_of_experience
+        ? `${m.years_of_experience} years experience`
+        : '';
+      const language = m.session_language || '';
+
+      result += `- ${name} ${verified}\n`;
+      result += `  Rating: ${rating}\n`;
+      result += `  Price: ${price}\n`;
+      if (experience) result += `  Experience: ${experience}\n`;
+      if (language) result += `  Language: ${language}\n`;
+      if (expertise) result += `  Expertise: ${expertise}\n`;
+      if (m.bio) result += `  About: ${m.bio.substring(0, 100)}...\n`;
+      result += '\n';
+    });
+  });
+
+  return result;
+}
+
+
 // ─── GET OR CREATE SESSION ────────────────────────
 
 export async function getOrCreateSession(userId: string) {
@@ -146,12 +218,17 @@ export async function sendChat(
     if (faqAnswer) {
       botReply = faqAnswer;
     } else {
+      // Fetch real mentor data for personalized recommendations
+      const mentors = await fetchAvailableMentors();
+      const mentorContext = formatMentorsForPrompt(mentors);
+
       botReply = await sendConversationMessage(
         conversationHistory,
         userMessage,
         onboardingData,
         userName,
-        userRole
+        userRole,
+        mentorContext
       );
     }
   }
