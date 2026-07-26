@@ -9,6 +9,10 @@ import {
   Globe,
   Clock,
   BadgeCheck,
+  GraduationCap,
+  Briefcase,
+  Award,
+  ExternalLink,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -72,6 +76,9 @@ function MentorProfilePage() {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [isFreeEligible, setIsFreeEligible] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [education, setEducation] = useState<any[]>([]);
+  const [experience, setExperience] = useState<any[]>([]);
+  const [certifications, setCertifications] = useState<any[]>([]);
 
   useEffect(() => {
     fetchMentorProfile();
@@ -138,6 +145,33 @@ function MentorProfilePage() {
         .order("created_at", { ascending: false });
 
       setReviews(reviewsData || []);
+
+      // Fetch education
+      const { data: educationData } = await supabase
+        .from("mentor_education")
+        .select("*")
+        .eq("mentor_id", id)
+        .order("start_year", { ascending: false });
+
+      setEducation(educationData || []);
+
+      // Fetch experience
+      const { data: experienceData } = await supabase
+        .from("mentor_experience")
+        .select("*")
+        .eq("mentor_id", id)
+        .order("start_year", { ascending: false });
+
+      setExperience(experienceData || []);
+
+      // Fetch certifications
+      const { data: certificationsData } = await supabase
+        .from("mentor_certifications")
+        .select("*")
+        .eq("mentor_id", id)
+        .order("issue_year", { ascending: false });
+
+      setCertifications(certificationsData || []);
 
     } catch (err) {
       console.error("Error fetching mentor:", err);
@@ -299,6 +333,116 @@ function MentorProfilePage() {
                   <Badge key={e} variant="outline" className="text-xs">
                     {e}
                   </Badge>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* Education */}
+          {education.length > 0 && (
+            <section className="mt-6">
+              <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
+                <GraduationCap className="h-4 w-4" />
+                Education
+              </h2>
+              <div className="space-y-3">
+                {education.map((e) => (
+                  <div key={e.id} className="flex gap-3">
+                    <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10">
+                      <GraduationCap className="h-4 w-4 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold">{e.degree}</p>
+                      {e.field_of_study && (
+                        <p className="text-xs text-muted-foreground">
+                          {e.field_of_study}
+                        </p>
+                      )}
+                      <p className="text-xs text-muted-foreground">
+                        {e.institution}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {e.start_year}
+                        {e.start_year && (e.end_year || e.is_current) ? " — " : ""}
+                        {e.is_current ? "Present" : e.end_year}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* Experience */}
+          {experience.length > 0 && (
+            <section className="mt-6">
+              <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
+                <Briefcase className="h-4 w-4" />
+                Experience
+              </h2>
+              <div className="space-y-3">
+                {experience.map((e) => (
+                  <div key={e.id} className="flex gap-3">
+                    <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10">
+                      <Briefcase className="h-4 w-4 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold">{e.title}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {e.company}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {e.start_year}
+                        {e.start_year && (e.end_year || e.is_current) ? " — " : ""}
+                        {e.is_current ? "Present" : e.end_year}
+                      </p>
+                      {e.description && (
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          {e.description}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* Certifications */}
+          {certifications.length > 0 && (
+            <section className="mt-6">
+              <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
+                <Award className="h-4 w-4" />
+                Certifications
+              </h2>
+              <div className="space-y-3">
+                {certifications.map((c) => (
+                  <div key={c.id} className="flex gap-3">
+                    <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10">
+                      <Award className="h-4 w-4 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold">{c.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {c.issuing_organization}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {c.issue_year}
+                        {c.expiry_year ? ` — ${c.expiry_year}` : ""}
+                      </p>
+                      {c.credential_url && (
+                        <a
+                          href={c.credential_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-0.5 flex items-center gap-1 text-xs text-primary underline"
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                          View credential
+                        </a>
+                      )}
+                    </div>
+                  </div>
                 ))}
               </div>
             </section>

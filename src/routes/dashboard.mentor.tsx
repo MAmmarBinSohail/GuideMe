@@ -207,7 +207,8 @@ function MentorDashboard() {
               </TabsTrigger>
               <TabsTrigger value="pricing">Pricing</TabsTrigger>
               <TabsTrigger value="availability">Availability</TabsTrigger>
-              <TabsTrigger value="verification">Verification</TabsTrigger>
+              <TabsTrigger value="profile">Profile</TabsTrigger>
+              <TabsTrigger value="videos">Videos</TabsTrigger>
             </TabsList>
 
             <TabsContent value="upcoming" className="mt-6">
@@ -276,8 +277,12 @@ function MentorDashboard() {
               <AvailabilityCard />
             </TabsContent>
 
-            <TabsContent value="verification" className="mt-6">
-              <VerificationCard />
+            <TabsContent value="profile" className="mt-6">
+              <ProfileTabCard />
+            </TabsContent>
+
+            <TabsContent value="videos" className="mt-6">
+              <VideosCard />
             </TabsContent>
           </Tabs>
         )}
@@ -492,8 +497,7 @@ function AddOverageDialog({
               <p className="text-sm text-muted-foreground">Loading rate...</p>
             ) : overageRate === 0 ? (
               <p className="text-sm text-amber-600">
-                You haven't set an overage rate yet. Set one in the
-                Pricing tab before charging extra time.
+                You haven't set an overage rate yet. Set one in the Pricing tab before charging extra time.
               </p>
             ) : (
               <>
@@ -742,6 +746,649 @@ function PricingCard() {
         </Button> 
       </div>
     </Card>
+  );
+}
+
+function ProfileTabCard() {
+  const { user } = useAuth();
+  const [mentorProfileId, setMentorProfileId] = useState<string | null>(null);
+  const [isVerified, setIsVerified] = useState(false);
+  const [activeSection, setActiveSection] = useState <
+    "education" | "experience" | "certifications"
+  >("education");
+
+  // Education state
+  const [education, setEducation] = useState<any[]>([]);
+  const [loadingEducation, setLoadingEducation] = useState(true);
+  const [showEducationForm, setShowEducationForm] = useState(false);
+  const [eduForm, setEduForm] = useState({
+    degree: "",
+    field_of_study: "",
+    institution: "",
+    start_year: "",
+    end_year: "",
+    is_current: false,
+  });
+
+  // Experience state
+  const [experience, setExperience] = useState<any[]>([]);
+  const [loadingExperience, setLoadingExperience] = useState(true);
+  const [showExperienceForm, setShowExperienceForm] = useState(false);
+  const [expForm, setExpForm] = useState({
+    title: "",
+    company: "",
+    start_year: "",
+    end_year: "",
+    is_current: false,
+    description: "",
+  });
+
+  // Certifications state
+  const [certifications, setCertifications] = useState<any[]>([]);
+  const [loadingCertifications, setLoadingCertifications] = useState(true);
+  const [showCertForm, setShowCertForm] = useState(false);
+  const [certForm, setCertForm] = useState({
+    name: "",
+    issuing_organization: "",
+    issue_year: "",
+    expiry_year: "",
+    credential_url: "",
+  });
+
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (user) loadAll();
+  }, [user]);
+
+  async function loadAll() {
+    const { data: mp } = await supabase
+      .from("mentor_profiles")
+      .select("id")
+      .eq("user_id", user!.id)
+      .single();
+
+    if (!mp) return;
+    setMentorProfileId(mp.id);
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("is_verified")
+      .eq("id", user!.id)
+      .single();
+
+    setIsVerified(profile?.is_verified ?? false);
+
+    await Promise.all([
+      loadEducation(mp.id),
+      loadExperience(mp.id),
+      loadCertifications(mp.id),
+    ]);
+  }
+
+  async function loadEducation(mid: string) {
+    setLoadingEducation(true);
+    const { data } = await supabase
+      .from("mentor_education")
+      .select("*")
+      .eq("mentor_id", mid)
+      .order("start_year", { ascending: false });
+    setEducation(data || []);
+    setLoadingEducation(false);
+  }
+
+  async function loadExperience(mid: string) {
+    setLoadingExperience(true);
+    const { data } = await supabase
+      .from("mentor_experience")
+      .select("*")
+      .eq("mentor_id", mid)
+      .order("start_year", { ascending: false });
+    setExperience(data || []);
+    setLoadingExperience(false);
+  }
+
+  async function loadCertifications(mid: string) {
+    setLoadingCertifications(true);
+    const { data } = await supabase
+      .from("mentor_certifications")
+      .select("*")
+      .eq("mentor_id", mid)
+      .order("issue_year", { ascending: false });
+    setCertifications(data || []);
+    setLoadingCertifications(false);
+  }
+
+  async function saveEducation() {
+    if (!mentorProfileId) return;
+    if (!eduForm.degree || !eduForm.institution) {
+      toast.error("Degree and institution are required.");
+      return;
+    }
+    setSaving(true);
+    const { error } = await supabase.from("mentor_education").insert({
+      mentor_id: mentorProfileId,
+      degree: eduForm.degree,
+      field_of_study: eduForm.field_of_study || null,
+      institution: eduForm.institution,
+      start_year: eduForm.start_year ? parseInt(eduForm.start_year) : null,
+      end_year: eduForm.is_current ? null : (eduForm.end_year ? parseInt(eduForm.end_year) : null),
+      is_current: eduForm.is_current,
+    });
+
+    if (error) {
+      toast.error("Failed to save education.");
+    } else {
+      toast.success("Education added.");
+      setShowEducationForm(false);
+      setEduForm({ degree: "", field_of_study: "", institution: "", start_year: "", end_year: "", is_current: false });
+      await loadEducation(mentorProfileId);
+      // Refresh verification status
+      const { data } = await supabase.from("profiles").select("is_verified").eq("id", user!.id).single();
+      setIsVerified(data?.is_verified ?? false);
+    }
+    setSaving(false);
+  }
+
+  async function deleteEducation(id: string) {
+    await supabase.from("mentor_education").delete().eq("id", id);
+    toast.success("Education removed.");
+    if (mentorProfileId) await loadEducation(mentorProfileId);
+    const { data } = await supabase.from("profiles").select("is_verified").eq("id", user!.id).single();
+    setIsVerified(data?.is_verified ?? false);
+  }
+
+  async function saveExperience() {
+    if (!mentorProfileId) return;
+    if (!expForm.title || !expForm.company) {
+      toast.error("Title and company are required.");
+      return;
+    }
+    setSaving(true);
+    const { error } = await supabase.from("mentor_experience").insert({
+      mentor_id: mentorProfileId,
+      title: expForm.title,
+      company: expForm.company,
+      start_year: expForm.start_year ? parseInt(expForm.start_year) : null,
+      end_year: expForm.is_current ? null : (expForm.end_year ? parseInt(expForm.end_year) : null),
+      is_current: expForm.is_current,
+      description: expForm.description || null,
+    });
+
+    if (error) {
+      toast.error("Failed to save experience.");
+    } else {
+      toast.success("Experience added.");
+      setShowExperienceForm(false);
+      setExpForm({ title: "", company: "", start_year: "", end_year: "", is_current: false, description: "" });
+      await loadExperience(mentorProfileId);
+    }
+    setSaving(false);
+  }
+
+  async function deleteExperience(id: string) {
+    await supabase.from("mentor_experience").delete().eq("id", id);
+    toast.success("Experience removed.");
+    if (mentorProfileId) await loadExperience(mentorProfileId);
+  }
+
+  async function saveCertification() {
+    if (!mentorProfileId) return;
+    if (!certForm.name || !certForm.issuing_organization) {
+      toast.error("Certificate name and issuing organization are required.");
+      return;
+    }
+    setSaving(true);
+    const { error } = await supabase.from("mentor_certifications").insert({
+      mentor_id: mentorProfileId,
+      name: certForm.name,
+      issuing_organization: certForm.issuing_organization,
+      issue_year: certForm.issue_year ? parseInt(certForm.issue_year) : null,
+      expiry_year: certForm.expiry_year ? parseInt(certForm.expiry_year) : null,
+      credential_url: certForm.credential_url || null,
+    });
+
+    if (error) {
+      toast.error("Failed to save certification.");
+    } else {
+      toast.success("Certification added.");
+      setShowCertForm(false);
+      setCertForm({ name: "", issuing_organization: "", issue_year: "", expiry_year: "", credential_url: "" });
+      await loadCertifications(mentorProfileId);
+    }
+    setSaving(false);
+  }
+
+  async function deleteCertification(id: string) {
+    await supabase.from("mentor_certifications").delete().eq("id", id);
+    toast.success("Certification removed.");
+    if (mentorProfileId) await loadCertifications(mentorProfileId);
+  }
+
+  return (
+    <div className="space-y-4">
+
+      {/* Verification Status Banner */}
+      <Card className={`p-4 flex items-center gap-3 ${
+        isVerified
+          ? "border-green-200 bg-green-50 dark:bg-green-950 dark:border-green-800"
+          : "border-amber-200 bg-amber-50 dark:bg-amber-950 dark:border-amber-800"
+      }`}>
+        {isVerified ? (
+          <BadgeCheck className="h-5 w-5 text-green-600 shrink-0" />
+        ) : (
+          <ShieldCheck className="h-5 w-5 text-amber-600 shrink-0" />
+        )}
+        <div>
+          <p className={`text-sm font-semibold ${
+            isVerified ? "text-green-700 dark:text-green-400" : "text-amber-700 dark:text-amber-400"
+          }`}>
+            {isVerified ? "Your profile is verified" : "Profile not yet verified"}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {isVerified
+              ? "You have a verified badge on your public profile."
+              : "To get verified: add at least 1 education entry, fill your bio, upload a profile picture, and set your availability."}
+          </p>
+        </div>
+      </Card>
+
+      {/* Section Tabs */}
+      <div className="flex gap-2 border-b">
+        {(["education", "experience", "certifications"] as const).map((s) => (
+          <button
+            key={s}
+            onClick={() => setActiveSection(s)}
+            className={`pb-2 px-1 text-sm font-medium capitalize border-b-2 transition ${
+              activeSection === s
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {s}
+          </button>
+        ))}
+      </div>
+
+      {/* Education Section */}
+      {activeSection === "education" && (
+        <Card className="p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold">Education</h3>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setShowEducationForm(!showEducationForm)}
+            >
+              <Plus className="h-3.5 w-3.5 mr-1" />
+              Add Education
+            </Button>
+          </div>
+
+          {showEducationForm && (
+            <div className="mb-4 rounded-lg border p-4 space-y-3 bg-muted/30">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1">
+                  <Label className="text-xs">Degree *</Label>
+                  <Input
+                    placeholder="e.g. MS Computer Science"
+                    value={eduForm.degree}
+                    onChange={(e) => setEduForm({ ...eduForm, degree: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Field of Study</Label>
+                  <Input
+                    placeholder="e.g. Artificial Intelligence"
+                    value={eduForm.field_of_study}
+                    onChange={(e) => setEduForm({ ...eduForm, field_of_study: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-1 sm:col-span-2">
+                  <Label className="text-xs">Institution *</Label>
+                  <Input
+                    placeholder="e.g. University of the Punjab"
+                    value={eduForm.institution}
+                    onChange={(e) => setEduForm({ ...eduForm, institution: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Start Year</Label>
+                  <Input
+                    type="number"
+                    placeholder="2018"
+                    value={eduForm.start_year}
+                    onChange={(e) => setEduForm({ ...eduForm, start_year: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">End Year</Label>
+                  <Input
+                    type="number"
+                    placeholder="2022"
+                    disabled={eduForm.is_current}
+                    value={eduForm.end_year}
+                    onChange={(e) => setEduForm({ ...eduForm, end_year: e.target.value })}
+                  />
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Switch
+                  checked={eduForm.is_current}
+                  onCheckedChange={(v) => setEduForm({ ...eduForm, is_current: v, end_year: "" })}
+                />
+                <Label className="text-xs">Currently studying here</Label>
+              </div>
+              <div className="flex gap-2 justify-end">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setShowEducationForm(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  disabled={saving}
+                  className="bg-gradient-primary text-primary-foreground"
+                  onClick={saveEducation}
+                >
+                  {saving ? "Saving..." : "Save"}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {loadingEducation ? (
+            <div className="flex justify-center py-8">
+              <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            </div>
+          ) : education.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-6">
+              No education added yet. Add your degrees and qualifications.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {education.map((e) => (
+                <div key={e.id} className="flex items-start justify-between rounded-lg border p-3">
+                  <div>
+                    <p className="text-sm font-semibold">{e.degree}</p>
+                    {e.field_of_study && (
+                      <p className="text-xs text-muted-foreground">{e.field_of_study}</p>
+                    )}
+                    <p className="text-xs text-muted-foreground">{e.institution}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {e.start_year} — {e.is_current ? "Present" : e.end_year}
+                    </p>
+                  </div>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                    onClick={() => deleteEducation(e.id)}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+      )}
+
+      {/* Experience Section */}
+      {activeSection === "experience" && (
+        <Card className="p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold">Experience</h3>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setShowExperienceForm(!showExperienceForm)}
+            >
+              <Plus className="h-3.5 w-3.5 mr-1" />
+              Add Experience
+            </Button>
+          </div>
+
+          {showExperienceForm && (
+            <div className="mb-4 rounded-lg border p-4 space-y-3 bg-muted/30">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1">
+                  <Label className="text-xs">Job Title *</Label>
+                  <Input
+                    placeholder="e.g. Senior Software Engineer"
+                    value={expForm.title}
+                    onChange={(e) => setExpForm({ ...expForm, title: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Company *</Label>
+                  <Input
+                    placeholder="e.g. Systems Limited"
+                    value={expForm.company}
+                    onChange={(e) => setExpForm({ ...expForm, company: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Start Year</Label>
+                  <Input
+                    type="number"
+                    placeholder="2020"
+                    value={expForm.start_year}
+                    onChange={(e) => setExpForm({ ...expForm, start_year: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">End Year</Label>
+                  <Input
+                    type="number"
+                    placeholder="2024"
+                    disabled={expForm.is_current}
+                    value={expForm.end_year}
+                    onChange={(e) => setExpForm({ ...expForm, end_year: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-1 sm:col-span-2">
+                  <Label className="text-xs">Description (optional)</Label>
+                  <Textarea
+                    placeholder="Brief description of your role and responsibilities"
+                    value={expForm.description}
+                    onChange={(e) => setExpForm({ ...expForm, description: e.target.value })}
+                    rows={2}
+                  />
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Switch
+                  checked={expForm.is_current}
+                  onCheckedChange={(v) => setExpForm({ ...expForm, is_current: v, end_year: "" })}
+                />
+                <Label className="text-xs">Currently working here</Label>
+              </div>
+              <div className="flex gap-2 justify-end">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setShowExperienceForm(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  disabled={saving}
+                  className="bg-gradient-primary text-primary-foreground"
+                  onClick={saveExperience}
+                >
+                  {saving ? "Saving..." : "Save"}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {loadingExperience ? (
+            <div className="flex justify-center py-8">
+              <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            </div>
+          ) : experience.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-6">
+              No experience added yet. Add your work history.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {experience.map((e) => (
+                <div key={e.id} className="flex items-start justify-between rounded-lg border p-3">
+                  <div>
+                    <p className="text-sm font-semibold">{e.title}</p>
+                    <p className="text-xs text-muted-foreground">{e.company}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {e.start_year} — {e.is_current ? "Present" : e.end_year}
+                    </p>
+                    {e.description && (
+                      <p className="text-xs text-muted-foreground mt-1">{e.description}</p>
+                    )}
+                  </div>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                    onClick={() => deleteExperience(e.id)}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+      )}
+
+      {/* Certifications Section */}
+      {activeSection === "certifications" && (
+        <Card className="p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold">Certifications</h3>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setShowCertForm(!showCertForm)}
+            >
+              <Plus className="h-3.5 w-3.5 mr-1" />
+              Add Certification
+            </Button>
+          </div>
+
+          {showCertForm && (
+            <div className="mb-4 rounded-lg border p-4 space-y-3 bg-muted/30">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1 sm:col-span-2">
+                  <Label className="text-xs">Certificate Name *</Label>
+                  <Input
+                    placeholder="e.g. AWS Certified Solutions Architect"
+                    value={certForm.name}
+                    onChange={(e) => setCertForm({ ...certForm, name: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-1 sm:col-span-2">
+                  <Label className="text-xs">Issuing Organization *</Label>
+                  <Input
+                    placeholder="e.g. Amazon Web Services"
+                    value={certForm.issuing_organization}
+                    onChange={(e) => setCertForm({ ...certForm, issuing_organization: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Issue Year</Label>
+                  <Input
+                    type="number"
+                    placeholder="2022"
+                    value={certForm.issue_year}
+                    onChange={(e) => setCertForm({ ...certForm, issue_year: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Expiry Year (optional)</Label>
+                  <Input
+                    type="number"
+                    placeholder="2025"
+                    value={certForm.expiry_year}
+                    onChange={(e) => setCertForm({ ...certForm, expiry_year: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-1 sm:col-span-2">
+                  <Label className="text-xs">Credential URL (optional)</Label>
+                  <Input
+                    placeholder="https://www.credly.com/badges/..."
+                    value={certForm.credential_url}
+                    onChange={(e) => setCertForm({ ...certForm, credential_url: e.target.value })}
+                  />
+                </div>
+              </div>
+              <div className="flex gap-2 justify-end">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setShowCertForm(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  disabled={saving}
+                  className="bg-gradient-primary text-primary-foreground"
+                  onClick={saveCertification}
+                >
+                  {saving ? "Saving..." : "Save"}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {loadingCertifications ? (
+            <div className="flex justify-center py-8">
+              <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            </div>
+          ) : certifications.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-6">
+              No certifications added yet.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {certifications.map((c) => (
+                <div key={c.id} className="flex items-start justify-between rounded-lg border p-3">
+                  <div>
+                    <p className="text-sm font-semibold">{c.name}</p>
+                    <p className="text-xs text-muted-foreground">{c.issuing_organization}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {c.issue_year}
+                      {c.expiry_year ? ` — ${c.expiry_year}` : ""}
+                    </p>
+                    {c.credential_url && (
+                      <a
+                        href={c.credential_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-xs text-primary underline"
+                      >
+                        View credential
+                      </a>
+                    )}
+                  </div>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                    onClick={() => deleteCertification(c.id)}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+      )}
+    </div>
   );
 }
 
@@ -1081,6 +1728,20 @@ function StatCard({ label, value, sub }: { label: string; value: string; sub: st
 }
 
 type VerificationStatus = "unsubmitted" | "pending" | "verified" | "rejected";
+
+function VideosCard() {
+  return (
+    <Card className="p-6 flex flex-col items-center justify-center py-16 text-center border-dashed">
+      <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center mb-3">
+        <Plus className="h-5 w-5 text-muted-foreground" />
+      </div>
+      <p className="text-sm font-medium">Videos coming soon</p>
+      <p className="text-xs text-muted-foreground mt-1">
+        You will be able to add your YouTube and Google Drive videos here.
+      </p>
+    </Card>
+  );
+}
 
 function VerificationCard() {
   const { user } = useAuth();
