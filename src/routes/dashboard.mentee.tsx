@@ -1,3 +1,5 @@
+import { createNotification } from "@/lib/notificationHelper";
+import { sendBookingCancellationEmail } from "@/lib/emailService";
 import { useEffect, useState, useRef } from "react";
 import {
   Dialog,
@@ -9,7 +11,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { createFileRoute, useNavigate } from "@/lib/router-compat";
-import { Calendar, Clock, Video, Star, Loader2, XCircle } from "lucide-react";
+import { Calendar, Clock, Video, Star, Loader2, XCircle, CheckCircle2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -72,6 +74,7 @@ function MenteeDashboard() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [reviewBooking, setReviewBooking] = useState<any | null>(null);
+  const [reviewedBookingIds, setReviewedBookingIds] = useState<Set<string>>(new Set());
   const [payments, setPayments] = useState<Payment[]>([]);
   
 
@@ -79,6 +82,7 @@ function MenteeDashboard() {
     if (user) {
       fetchBookings();
       fetchPayments();
+      fetchReviewedBookings();
     }
   }, [user]);
 
@@ -114,6 +118,22 @@ function MenteeDashboard() {
       console.error("Error:", err);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function fetchReviewedBookings() {
+    try {
+      const { data, error } = await supabase
+        .from("reviews")
+        .select("booking_id")
+        .eq("mentee_id", user!.id);
+
+      if (!error && data) {
+        const ids = new Set(data.map((r) => r.booking_id as string));
+        setReviewedBookingIds(ids);
+      }
+    } catch (err) {
+      console.error("Error fetching reviewed bookings:", err);
     }
   }
 
@@ -172,6 +192,7 @@ function MenteeDashboard() {
       toast.success("Review submitted successfully!");
       setReviewBooking(null);
       fetchBookings();
+      fetchReviewedBookings();
 
     } catch (err) {
       toast.error("Something went wrong.");
@@ -217,13 +238,29 @@ function MenteeDashboard() {
         return;
       }
 
-      await supabase.from("notifications").insert({
+      await createNotification({
           user_id: user!.id,
           type: "booking_cancelled",
           title: "Booking Cancelled",
           message: "Your booking has been cancelled successfully.",
           related_booking_id: bookingId,
         });
+
+        // Send cancellation email
+        if (user.email) {
+          const booking = bookings.find((b) => b.id === bookingId);
+          const mentorName = booking?.mentor_profiles?.profiles?.full_name ?? "your mentor";
+          const date = booking?.scheduled_at
+            ? new Date(booking.scheduled_at).toLocaleDateString()
+            : "";
+
+        await sendBookingCancellationEmail(
+          user.email,
+          user.name ?? "there",
+          mentorName,
+          date
+        );
+      }
 
       toast.success("Booking cancelled successfully.");
       fetchBookings();
@@ -330,6 +367,7 @@ function MenteeDashboard() {
                       booking={b}
                       variant="past"
                       onLeaveReview={() => setReviewBooking(b)}
+                      hasReviewed={reviewedBookingIds.has(b.id)}
                     />
                   ))}
                 </div>
@@ -455,11 +493,13 @@ function BookingCard({
   variant,
   onCancel,
   onLeaveReview,
+  hasReviewed,
 }: {
   booking: Booking;
   variant: "upcoming" | "past" | "cancelled";
   onCancel?: () => void;
   onLeaveReview?: () => void;
+  hasReviewed?: boolean;
 }) {
   const mentorName = booking.mentor_profiles?.profiles?.full_name ?? "Unknown Mentor";
   const mentorAvatar = booking.mentor_profiles?.profiles?.profile_picture_url;
@@ -572,13 +612,20 @@ function BookingCard({
           </>
         )}
         {variant === "past" && (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={onLeaveReview}
-          >
-            <Star className="mr-1 h-3.5 w-3.5" /> Leave Review
-          </Button>
+          hasReviewed ? (
+            <div className="flex items-center gap-1 text-xs text-green-600 font-medium">
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              Reviewed
+            </div>
+          ) : (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={onLeaveReview}
+            >
+              <Star className="mr-1 h-3.5 w-3.5" /> Leave Review
+            </Button>
+          )
         )}
       </div>
     </Card>

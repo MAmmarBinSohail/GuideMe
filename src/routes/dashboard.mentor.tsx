@@ -1,3 +1,5 @@
+import { createNotification } from "@/lib/notificationHelper";
+import { sendSessionCompleteEmail, sendOverageChargeEmail } from "@/lib/emailService";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { createFileRoute, Link } from "@/lib/router-compat";
 import { useEffect, useState } from "react";
@@ -116,6 +118,48 @@ function MentorDashboard() {
       return;
     }
 
+    // Get booking details to notify mentee
+    const { data: booking } = await supabase
+      .from("bookings")
+      .select(`
+        mentee_id,
+        mentor_profiles (
+          profiles (
+            full_name
+          )
+        )
+      `)
+      .eq("id", bookingId)
+      .single();
+
+    if (booking) {
+      const mentorName = (booking.mentor_profiles as any)?.profiles?.full_name ?? "Your mentor";
+
+      // Send review prompt notification to mentee (InDrive style)
+      await createNotification({
+        user_id: booking.mentee_id,
+        type: "booking_confirmed",
+        title: "How was your session?",
+        message: `Your session with ${mentorName} is complete. Go to your Dashboard → Past tab to leave a review and help other mentees.`,
+        related_booking_id: bookingId,
+      });
+
+      // Send session complete email to mentee
+        const { data: menteeProfile } = await supabase
+          .from("profiles")
+          .select("email")
+          .eq("id", booking.mentee_id)
+          .single();
+
+        if (menteeProfile?.email) {
+          await sendSessionCompleteEmail(
+            menteeProfile.email,
+            menteeProfile.email.split("@")[0],
+            mentorName
+          );
+        }
+    }
+
     toast.success("Session marked as completed.");
     fetchBookings();
   }
@@ -143,13 +187,36 @@ function MentorDashboard() {
       return;
     }
 
-    await supabase.from("notifications").insert({
+    await createNotification({
       user_id: menteeId,
       type: "payment",
       title: "Additional Charge for Extended Session",
       message: `Your session ran ${extraMinutes} extra minutes. An additional charge of PKR ${amount} has been recorded.`,
       related_booking_id: bookingId,
     });
+
+    // Send overage charge email
+    const { data: menteeProfile } = await supabase
+      .from("profiles")
+      .select("email, full_name")
+      .eq("id", menteeId)
+      .single();
+
+    const { data: mentorProfileData } = await supabase
+      .from("mentor_profiles")
+      .select("profiles(full_name)")
+      .eq("user_id", user!.id)
+      .single();
+
+    if (menteeProfile?.email) {
+      await sendOverageChargeEmail(
+        menteeProfile.email,
+        menteeProfile.full_name ?? "there",
+        (mentorProfileData?.profiles as any)?.full_name ?? "Your mentor",
+        extraMinutes,
+        amount
+      );
+    }
 
     toast.success(`Overage charge of PKR ${amount} recorded.`);
     setOverageBooking(null);

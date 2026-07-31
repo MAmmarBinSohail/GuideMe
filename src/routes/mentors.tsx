@@ -80,6 +80,7 @@ function MentorsPage() {
           )
         `)
         .eq("is_available", true)
+        .or("is_hibernating.is.null,is_hibernating.eq.false")
         .order("average_rating", { ascending: false });
 
       if (error) {

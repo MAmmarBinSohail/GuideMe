@@ -1,3 +1,5 @@
+import { createNotification } from "@/lib/notificationHelper";
+import { sendBookingConfirmationEmail } from "@/lib/emailService";
 import { createFileRoute, Link, useNavigate } from "@/lib/router-compat";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -349,13 +351,25 @@ function BookSessionPage() {
         status: "active",
       });
 
-      await supabase.from("notifications").insert({
+      await createNotification({
         user_id: user.id,
         type: "booking_confirmed",
         title: "Booking Confirmed!",
         message: `Your session with ${mentor!.profiles.full_name} is confirmed for ${formatDateLong(selectedDate)} at ${selectedTime}. Meeting link: ${meetingLink}`,
         related_booking_id: newBooking.id,
       });
+
+      // Send confirmation email
+      if (user.email) {
+        await sendBookingConfirmationEmail(
+          user.email,
+          user.name ?? "there",
+          mentor!.profiles.full_name,
+          formatDateLong(selectedDate),
+          selectedTime.slice(0, 5),
+          meetingLink
+        );
+      }
 
       setShowPayment(false);
       setSuccess({
