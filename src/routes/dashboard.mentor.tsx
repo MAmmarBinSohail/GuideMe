@@ -1730,15 +1730,324 @@ function StatCard({ label, value, sub }: { label: string; value: string; sub: st
 type VerificationStatus = "unsubmitted" | "pending" | "verified" | "rejected";
 
 function VideosCard() {
+  const { user } = useAuth();
+  const [mentorProfileId, setMentorProfileId] = useState<string | null>(null);
+  const [isVerified, setIsVerified] = useState(false);
+  const [videos, setVideos] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [showForm, setShowForm] = useState(false);
+  const [videoUrl, setVideoUrl] = useState("");
+  const [videoTitle, setVideoTitle] = useState("");
+  const [urlError, setUrlError] = useState("");
+
+  useEffect(() => {
+    if (user) loadVideos();
+  }, [user]);
+
+  async function loadVideos() {
+    setLoading(true);
+    try {
+      const { data: mp } = await supabase
+        .from("mentor_profiles")
+        .select("id")
+        .eq("user_id", user!.id)
+        .single();
+
+      if (!mp) return;
+      setMentorProfileId(mp.id);
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("is_verified")
+        .eq("id", user!.id)
+        .single();
+
+      setIsVerified(profile?.is_verified ?? false);
+
+      const { data } = await supabase
+        .from("mentor_videos")
+        .select("*")
+        .eq("mentor_id", mp.id)
+        .order("created_at", { ascending: false });
+
+      setVideos(data || []);
+    } catch (err) {
+      console.error("Error loading videos:", err);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function parseVideoUrl(url: string): {
+    type: string;
+    embedUrl: string;
+  } | null {
+    try {
+      // YouTube regular video
+      // https://www.youtube.com/watch?v=VIDEO_ID
+      // https://youtu.be/VIDEO_ID
+      const ytRegex =
+        /(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
+      const ytMatch = url.match(ytRegex);
+      if (ytMatch) {
+        return {
+          type: "youtube",
+          embedUrl: `https://www.youtube.com/embed/${ytMatch[1]}`,
+        };
+      }
+
+      // YouTube playlist
+      // https://www.youtube.com/playlist?list=PLAYLIST_ID
+      const plRegex = /youtube\.com\/playlist\?list=([a-zA-Z0-9_-]+)/;
+      const plMatch = url.match(plRegex);
+      if (plMatch) {
+        return {
+          type: "youtube_playlist",
+          embedUrl: `https://www.youtube.com/embed/videoseries?list=${plMatch[1]}`,
+        };
+      }
+
+      // Google Drive
+      // https://drive.google.com/file/d/FILE_ID/view
+      const driveRegex = /drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/;
+      const driveMatch = url.match(driveRegex);
+      if (driveMatch) {
+        return {
+          type: "drive",
+          embedUrl: `https://drive.google.com/file/d/${driveMatch[1]}/preview`,
+        };
+      }
+
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
+  function handleUrlChange(url: string) {
+    setVideoUrl(url);
+    setUrlError("");
+    if (url.trim()) {
+      const parsed = parseVideoUrl(url.trim());
+      if (!parsed) {
+        setUrlError(
+          "Invalid URL. Please use a YouTube video, YouTube playlist, or Google Drive video link."
+        );
+      }
+    }
+  }
+
+  async function saveVideo() {
+    if (!mentorProfileId) return;
+    if (!videoUrl.trim()) {
+      setUrlError("Please enter a video URL.");
+      return;
+    }
+
+    const parsed = parseVideoUrl(videoUrl.trim());
+    if (!parsed) {
+      setUrlError(
+        "Invalid URL. Please use a YouTube video, YouTube playlist, or Google Drive video link."
+      );
+      return;
+    }
+
+    setSaving(true);
+    const { error } = await supabase.from("mentor_videos").insert({
+      mentor_id: mentorProfileId,
+      title: videoTitle.trim() || null,
+      video_url: videoUrl.trim(),
+      video_type: parsed.type,
+      embed_url: parsed.embedUrl,
+    });
+
+    if (error) {
+      toast.error("Failed to save video.");
+    } else {
+      toast.success("Video added successfully.");
+      setShowForm(false);
+      setVideoUrl("");
+      setVideoTitle("");
+      setUrlError("");
+      await loadVideos();
+    }
+    setSaving(false);
+  }
+
+  async function deleteVideo(id: string) {
+    await supabase.from("mentor_videos").delete().eq("id", id);
+    toast.success("Video removed.");
+    await loadVideos();
+  }
+
+  if (loading) {
+    return (
+      <Card className="p-6 flex items-center justify-center py-16">
+        <div className="h-6 w-6 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      </Card>
+    );
+  }
+
+  if (!isVerified) {
+    return (
+      <Card className="p-6 flex flex-col items-center justify-center py-16 text-center">
+        <ShieldCheck className="h-10 w-10 text-muted-foreground mb-3" />
+        <p className="text-sm font-medium">Verification required</p>
+        <p className="text-xs text-muted-foreground mt-1 max-w-sm">
+          Only verified mentors can add videos. Complete your profile
+          verification in the Profile tab to unlock this feature.
+        </p>
+        <Button
+          variant="outline"
+          size="sm"
+          className="mt-4"
+          onClick={() => {
+            const tab = document.querySelector(
+              '[value="profile"]'
+            ) as HTMLElement;
+            tab?.click();
+          }}
+        >
+          Go to Profile tab
+        </Button>
+      </Card>
+    );
+  }
+
   return (
-    <Card className="p-6 flex flex-col items-center justify-center py-16 text-center border-dashed">
-      <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center mb-3">
-        <Plus className="h-5 w-5 text-muted-foreground" />
+    <Card className="p-6">
+      <div className="mb-4 flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-semibold">My Videos</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Add YouTube videos, playlists, or Google Drive videos to
+            showcase your expertise on the Videos page.
+          </p>
+        </div>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => setShowForm(!showForm)}
+        >
+          <Plus className="h-3.5 w-3.5 mr-1" /> Add Video
+        </Button>
       </div>
-      <p className="text-sm font-medium">Videos coming soon</p>
-      <p className="text-xs text-muted-foreground mt-1">
-        You will be able to add your YouTube and Google Drive videos here.
-      </p>
+
+      {/* Add Video Form */}
+      {showForm && (
+        <div className="mb-6 rounded-lg border p-4 space-y-3 bg-muted/30">
+          <div className="space-y-1">
+            <Label className="text-xs">Video Title (optional)</Label>
+            <Input
+              placeholder="e.g. How to ace your job interview"
+              value={videoTitle}
+              onChange={(e) => setVideoTitle(e.target.value)}
+            />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Video URL *</Label>
+            <Input
+              placeholder="YouTube video, playlist, or Google Drive link"
+              value={videoUrl}
+              onChange={(e) => handleUrlChange(e.target.value)}
+              className={urlError ? "border-destructive" : ""}
+            />
+            {urlError && (
+              <p className="text-xs text-destructive">{urlError}</p>
+            )}
+            <p className="text-xs text-muted-foreground">
+              Supported: youtube.com/watch?v=... · youtu.be/... ·
+              youtube.com/playlist?list=... ·
+              drive.google.com/file/d/.../view
+            </p>
+          </div>
+
+          {/* Preview */}
+          {videoUrl && !urlError && parseVideoUrl(videoUrl) && (
+            <div className="space-y-1">
+              <Label className="text-xs">Preview</Label>
+              <div className="rounded-lg overflow-hidden border aspect-video">
+                <iframe
+                  src={parseVideoUrl(videoUrl)!.embedUrl}
+                  className="w-full h-full"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              </div>
+            </div>
+          )}
+
+          <div className="flex gap-2 justify-end">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                setShowForm(false);
+                setVideoUrl("");
+                setVideoTitle("");
+                setUrlError("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              disabled={saving || !!urlError || !videoUrl.trim()}
+              className="bg-gradient-primary text-primary-foreground"
+              onClick={saveVideo}
+            >
+              {saving ? "Saving..." : "Add Video"}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Videos Grid */}
+      {videos.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-12 text-center border-dashed border rounded-lg">
+          <p className="text-sm text-muted-foreground">
+            No videos added yet. Add your first video above.
+          </p>
+        </div>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2">
+          {videos.map((v) => (
+            <div key={v.id} className="rounded-lg border overflow-hidden">
+              <div className="aspect-video">
+                <iframe
+                  src={v.embed_url}
+                  className="w-full h-full"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              </div>
+              <div className="p-3 flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  {v.title && (
+                    <p className="text-sm font-medium truncate">{v.title}</p>
+                  )}
+                  <p className="text-xs text-muted-foreground capitalize">
+                    {v.video_type === "youtube_playlist"
+                      ? "YouTube Playlist"
+                      : v.video_type === "youtube"
+                      ? "YouTube Video"
+                      : "Google Drive"}
+                  </p>
+                </div>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive"
+                  onClick={() => deleteVideo(v.id)}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </Card>
   );
 }

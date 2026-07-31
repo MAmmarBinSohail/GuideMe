@@ -13,6 +13,7 @@ import {
   Briefcase,
   Award,
   ExternalLink,
+  PlayCircle
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -79,6 +80,7 @@ function MentorProfilePage() {
   const [education, setEducation] = useState<any[]>([]);
   const [experience, setExperience] = useState<any[]>([]);
   const [certifications, setCertifications] = useState<any[]>([]);
+  const [mentorVideos, setMentorVideos] = useState<any[]>([]);
 
   useEffect(() => {
     fetchMentorProfile();
@@ -172,6 +174,15 @@ function MentorProfilePage() {
         .order("issue_year", { ascending: false });
 
       setCertifications(certificationsData || []);
+
+      // Fetch mentor videos
+      const { data: videosData } = await supabase
+        .from("mentor_videos")
+        .select("*")
+        .eq("mentor_id", id)
+        .order("created_at", { ascending: false });
+
+      setMentorVideos(videosData || []);
 
     } catch (err) {
       console.error("Error fetching mentor:", err);
@@ -442,6 +453,41 @@ function MentorProfilePage() {
                         </a>
                       )}
                     </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* Videos */}
+          {mentorVideos.length > 0 && (
+            <section className="mt-6">
+              <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
+                <PlayCircle className="h-4 w-4" />
+                Videos by {mentor.profiles.full_name.split(" ")[0]}
+              </h2>
+              <div className="grid gap-4 sm:grid-cols-2">
+                {mentorVideos.map((v) => (
+                  <div
+                    key={v.id}
+                    className="rounded-xl border overflow-hidden"
+                  >
+                    <div className="aspect-video">
+                      <iframe
+                        src={v.embed_url}
+                        className="w-full h-full"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                        title={v.title ?? "Mentor video"}
+                      />
+                    </div>
+                    {v.title && (
+                      <div className="p-2">
+                        <p className="text-xs font-medium line-clamp-1">
+                          {v.title}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

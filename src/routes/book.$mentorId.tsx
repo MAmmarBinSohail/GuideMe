@@ -1,4 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@/lib/router-compat";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { useState, useEffect } from "react";
 import {
   ArrowLeft,
@@ -84,6 +86,9 @@ function BookSessionPage() {
   const [checkingEligibility, setCheckingEligibility] = useState(true);
   const [showPayment, setShowPayment] = useState(false);
   const [payingNow, setPayingNow] = useState(false);
+  const [selectedMethod, setSelectedMethod] = useState<string | null>(null);
+  const [formData, setFormData] = useState<Record<string, string>>({});
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [availableTimes, setAvailableTimes] = useState<string[]>([]);
@@ -326,6 +331,12 @@ function BookSessionPage() {
           amount: sessionPrice,
           payment_status: "completed",
           payment_type: "session",
+          payment_method: selectedMethod,
+          transaction_reference:
+            formData.transaction_id ||
+            formData.transaction_reference ||
+            formData.reference ||
+            null,
           paid_at: new Date().toISOString(),
         });
       }
@@ -364,10 +375,41 @@ function BookSessionPage() {
     }
   }
 
+  function validateForm(): boolean {
+    const errors: Record<string, string> = {};
+
+    if (selectedMethod === "jazzcash" || selectedMethod === "easypaisa") {
+      if (!formData.phone) errors.phone = "Phone number is required.";
+      if (!formData.transaction_id)
+        errors.transaction_id = "Transaction ID is required.";
+    }
+
+    if (selectedMethod === "bank_transfer") {
+      if (!formData.bank_name) errors.bank_name = "Bank name is required.";
+      if (!formData.account_title)
+        errors.account_title = "Account title is required.";
+      if (!formData.account_number)
+        errors.account_number = "Account number is required.";
+      if (!formData.transaction_reference)
+        errors.transaction_reference = "Transaction reference is required.";
+    }
+
+    if (selectedMethod === "wise" || selectedMethod === "payoneer") {
+      if (!formData.email) errors.email = "Email address is required.";
+      if (!formData.reference) errors.reference = "Reference number is required.";
+    }
+
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  }
+
   async function handlePayNow() {
+    if (!selectedMethod) return;
+    if (!validateForm()) return;
+
     setPayingNow(true);
-    // Simulate payment processing delay
-    await new Promise((r) => setTimeout(r, 1200));
+    // Simulate payment processing
+    await new Promise((r) => setTimeout(r, 1500));
     await createBookingRecord();
   }
 
@@ -623,8 +665,388 @@ function BookSessionPage() {
           )}
         </DialogContent>
       </Dialog>
-      {/* Mock Payment Modal */}
-      <Dialog open={showPayment} onOpenChange={(o) => !payingNow && setShowPayment(o)}>
+      {/* Payment Modal */}
+      <Dialog
+        open={showPayment}
+        onOpenChange={(o) => {
+          if (!payingNow) {
+            setShowPayment(o);
+            if (!o) {
+              setSelectedMethod(null);
+              setFormData({});
+              setFormErrors({});
+            }
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Complete Payment</DialogTitle>
+          </DialogHeader>
+
+          {/* Order Summary */}
+          <div className="rounded-lg border bg-muted/30 p-4 text-sm">
+            <div className="flex justify-between mb-1">
+              <span className="text-muted-foreground">Mentor</span>
+              <span className="font-medium">{mentor.profiles.full_name}</span>
+            </div>
+            <div className="flex justify-between mb-1">
+              <span className="text-muted-foreground">Duration</span>
+              <span className="font-medium">
+                {DURATION_OPTIONS.find((d) => d.value === duration)?.label}
+              </span>
+            </div>
+            <div className="flex justify-between font-bold text-base mt-2 pt-2 border-t">
+              <span>Total</span>
+              <span className="text-gradient-primary">PKR {sessionPrice}</span>
+            </div>
+          </div>
+
+          {/* Step 1 — Choose Payment Method */}
+          {!selectedMethod && (
+            <div className="space-y-3">
+              <p className="text-sm font-medium">Choose payment method</p>
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  {
+                    id: "jazzcash",
+                    label: "JazzCash",
+                    color: "bg-red-50 border-red-200 hover:border-red-400 dark:bg-red-950 dark:border-red-800",
+                    textColor: "text-red-700 dark:text-red-400",
+                    icon: "📱",
+                  },
+                  {
+                    id: "easypaisa",
+                    label: "Easypaisa",
+                    color: "bg-green-50 border-green-200 hover:border-green-400 dark:bg-green-950 dark:border-green-800",
+                    textColor: "text-green-700 dark:text-green-400",
+                    icon: "💚",
+                  },
+                  {
+                    id: "bank_transfer",
+                    label: "Bank Transfer",
+                    color: "bg-blue-50 border-blue-200 hover:border-blue-400 dark:bg-blue-950 dark:border-blue-800",
+                    textColor: "text-blue-700 dark:text-blue-400",
+                    icon: "🏦",
+                  },
+                  {
+                    id: "wise",
+                    label: "Wise / Payoneer",
+                    color: "bg-purple-50 border-purple-200 hover:border-purple-400 dark:bg-purple-950 dark:border-purple-800",
+                    textColor: "text-purple-700 dark:text-purple-400",
+                    icon: "🌍",
+                  },
+                ].map((method) => (
+                  <button
+                    key={method.id}
+                    onClick={() => {
+                      setSelectedMethod(
+                        method.id === "wise" ? "wise" : method.id
+                      );
+                      setFormData({});
+                      setFormErrors({});
+                    }}
+                    className={`flex flex-col items-center gap-2 rounded-xl border p-4 text-center transition ${method.color}`}
+                  >
+                    <span className="text-2xl">{method.icon}</span>
+                    <span className={`text-sm font-semibold ${method.textColor}`}>
+                      {method.label}
+                    </span>
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground text-center">
+                This is a simulated payment for demonstration purposes.
+                No real transaction will occur.
+              </p>
+            </div>
+          )}
+
+          {/* Step 2 — Payment Form */}
+          {selectedMethod && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    setSelectedMethod(null);
+                    setFormData({});
+                    setFormErrors({});
+                  }}
+                  className="text-xs text-primary hover:underline"
+                >
+                  ← Change method
+                </button>
+                <span className="text-sm font-medium capitalize">
+                  {selectedMethod === "bank_transfer"
+                    ? "Bank Transfer"
+                    : selectedMethod === "wise"
+                    ? "Wise / Payoneer"
+                    : selectedMethod.charAt(0).toUpperCase() +
+                      selectedMethod.slice(1)}
+                </span>
+              </div>
+
+              {/* JazzCash Form */}
+              {selectedMethod === "jazzcash" && (
+                <div className="space-y-3">
+                  <div className="rounded-lg bg-red-50 dark:bg-red-950 p-3 text-xs text-red-700 dark:text-red-400">
+                    Send PKR {sessionPrice} to JazzCash account{" "}
+                    <strong>03XX-XXXXXXX</strong> and enter the details below.
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Your JazzCash Number *</Label>
+                    <Input
+                      placeholder="03XX-XXXXXXX"
+                      value={formData.phone ?? ""}
+                      onChange={(e) =>
+                        setFormData({ ...formData, phone: e.target.value })
+                      }
+                      className={formErrors.phone ? "border-destructive" : ""}
+                    />
+                    {formErrors.phone && (
+                      <p className="text-xs text-destructive">{formErrors.phone}</p>
+                    )}
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Transaction ID *</Label>
+                    <Input
+                      placeholder="e.g. TXN123456789"
+                      value={formData.transaction_id ?? ""}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          transaction_id: e.target.value,
+                        })
+                      }
+                      className={
+                        formErrors.transaction_id ? "border-destructive" : ""
+                      }
+                    />
+                    {formErrors.transaction_id && (
+                      <p className="text-xs text-destructive">
+                        {formErrors.transaction_id}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Easypaisa Form */}
+              {selectedMethod === "easypaisa" && (
+                <div className="space-y-3">
+                  <div className="rounded-lg bg-green-50 dark:bg-green-950 p-3 text-xs text-green-700 dark:text-green-400">
+                    Send PKR {sessionPrice} to Easypaisa account{" "}
+                    <strong>03XX-XXXXXXX</strong> and enter the details below.
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Your Easypaisa Number *</Label>
+                    <Input
+                      placeholder="03XX-XXXXXXX"
+                      value={formData.phone ?? ""}
+                      onChange={(e) =>
+                        setFormData({ ...formData, phone: e.target.value })
+                      }
+                      className={formErrors.phone ? "border-destructive" : ""}
+                    />
+                    {formErrors.phone && (
+                      <p className="text-xs text-destructive">{formErrors.phone}</p>
+                    )}
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Transaction ID *</Label>
+                    <Input
+                      placeholder="e.g. EP123456789"
+                      value={formData.transaction_id ?? ""}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          transaction_id: e.target.value,
+                        })
+                      }
+                      className={
+                        formErrors.transaction_id ? "border-destructive" : ""
+                      }
+                    />
+                    {formErrors.transaction_id && (
+                      <p className="text-xs text-destructive">
+                        {formErrors.transaction_id}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Bank Transfer Form */}
+              {selectedMethod === "bank_transfer" && (
+                <div className="space-y-3">
+                  <div className="rounded-lg bg-blue-50 dark:bg-blue-950 p-3 text-xs text-blue-700 dark:text-blue-400">
+                    Transfer PKR {sessionPrice} to the mentor's bank account
+                    and fill in your transfer details below.
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Bank Name *</Label>
+                      <Input
+                        placeholder="e.g. HBL"
+                        value={formData.bank_name ?? ""}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            bank_name: e.target.value,
+                          })
+                        }
+                        className={
+                          formErrors.bank_name ? "border-destructive" : ""
+                        }
+                      />
+                      {formErrors.bank_name && (
+                        <p className="text-xs text-destructive">
+                          {formErrors.bank_name}
+                        </p>
+                      )}
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Account Title *</Label>
+                      <Input
+                        placeholder="e.g. Muhammad Ahmed"
+                        value={formData.account_title ?? ""}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            account_title: e.target.value,
+                          })
+                        }
+                        className={
+                          formErrors.account_title ? "border-destructive" : ""
+                        }
+                      />
+                      {formErrors.account_title && (
+                        <p className="text-xs text-destructive">
+                          {formErrors.account_title}
+                        </p>
+                      )}
+                    </div>
+                    <div className="space-y-1 sm:col-span-2">
+                      <Label className="text-xs">Account Number *</Label>
+                      <Input
+                        placeholder="e.g. 0123456789012345"
+                        value={formData.account_number ?? ""}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            account_number: e.target.value,
+                          })
+                        }
+                        className={
+                          formErrors.account_number ? "border-destructive" : ""
+                        }
+                      />
+                      {formErrors.account_number && (
+                        <p className="text-xs text-destructive">
+                          {formErrors.account_number}
+                        </p>
+                      )}
+                    </div>
+                    <div className="space-y-1 sm:col-span-2">
+                      <Label className="text-xs">
+                        Transaction Reference *
+                      </Label>
+                      <Input
+                        placeholder="e.g. REF123456"
+                        value={formData.transaction_reference ?? ""}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            transaction_reference: e.target.value,
+                          })
+                        }
+                        className={
+                          formErrors.transaction_reference
+                            ? "border-destructive"
+                            : ""
+                        }
+                      />
+                      {formErrors.transaction_reference && (
+                        <p className="text-xs text-destructive">
+                          {formErrors.transaction_reference}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Wise / Payoneer Form */}
+              {selectedMethod === "wise" && (
+                <div className="space-y-3">
+                  <div className="rounded-lg bg-purple-50 dark:bg-purple-950 p-3 text-xs text-purple-700 dark:text-purple-400">
+                    Send PKR {sessionPrice} equivalent via Wise or Payoneer
+                    to the mentor's account and enter your transfer details.
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">
+                      Your Wise / Payoneer Email *
+                    </Label>
+                    <Input
+                      type="email"
+                      placeholder="your@email.com"
+                      value={formData.email ?? ""}
+                      onChange={(e) =>
+                        setFormData({ ...formData, email: e.target.value })
+                      }
+                      className={formErrors.email ? "border-destructive" : ""}
+                    />
+                    {formErrors.email && (
+                      <p className="text-xs text-destructive">
+                        {formErrors.email}
+                      </p>
+                    )}
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Reference Number *</Label>
+                    <Input
+                      placeholder="e.g. WISE-123456 or PAY-789012"
+                      value={formData.reference ?? ""}
+                      onChange={(e) =>
+                        setFormData({ ...formData, reference: e.target.value })
+                      }
+                      className={
+                        formErrors.reference ? "border-destructive" : ""
+                      }
+                    />
+                    {formErrors.reference && (
+                      <p className="text-xs text-destructive">
+                        {formErrors.reference}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              <Button
+                disabled={payingNow}
+                onClick={handlePayNow}
+                className="w-full bg-gradient-primary text-primary-foreground hover:opacity-90"
+              >
+                {payingNow ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Processing Payment…
+                  </>
+                ) : (
+                  `Confirm Payment — PKR ${sessionPrice}`
+                )}
+              </Button>
+
+              <p className="text-xs text-muted-foreground text-center">
+                This is a simulated payment for demonstration purposes.
+                No real transaction will occur.
+              </p>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+      <Dialog>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Complete Payment</DialogTitle>

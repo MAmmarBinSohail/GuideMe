@@ -1,7 +1,6 @@
   import ChatbotWidget from './chatbot/ChatbotWidget';
   import { Routes, Route } from "react-router-dom";
   import { RootLayout, NotFoundComponent } from "./routes/__root";
-
   import { Route as IndexRoute } from "./routes/index";
   import { Route as LoginRoute } from "./routes/login";
   import { Route as RegisterRoute } from "./routes/register";
@@ -17,6 +16,7 @@
   import { Route as NotificationsRoute } from "./routes/notifications";
   import { Route as SettingsRoute } from "./routes/settings";
   import { Route as AiAssistantRoute } from "./routes/ai-assistant";
+  import { Route as VideosRoute } from "./routes/videos";
 
   export default function App() {
     return (
@@ -38,6 +38,7 @@
           <Route path="/settings" element={<SettingsRoute.component />} />
           <Route path="/ai-assistant" element={<AiAssistantRoute.component />} />
           <Route path="*" element={<NotFoundComponent />} />
+          <Route path="/videos" element={<VideosRoute.component />} />
         </Routes>
         <ChatbotWidget />
       </RootLayout>
