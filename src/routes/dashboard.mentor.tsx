@@ -261,7 +261,11 @@ function MentorDashboard() {
             <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
           </div>
         ) : (
-          <Tabs defaultValue="upcoming">
+          <Tabs defaultValue={(() => {
+            const hash = window.location.hash.replace('#', '');
+            const validTabs = ['upcoming', 'past', 'cancelled', 'pricing', 'availability', 'profile', 'videos'];
+            return validTabs.includes(hash) ? hash : 'upcoming';
+          })()}>
             <TabsList className="flex-wrap h-auto">
               <TabsTrigger value="upcoming">
                 Upcoming ({upcoming.length})

@@ -306,7 +306,11 @@ function MenteeDashboard() {
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
         ) : (
-          <Tabs defaultValue="upcoming" className="w-full">
+          <Tabs defaultValue={(() => {
+            const hash = window.location.hash.replace('#', '');
+            const validTabs = ['upcoming', 'past', 'cancelled', 'payments'];
+            return validTabs.includes(hash) ? hash : 'upcoming';
+          })()}>
             <TabsList>
               <TabsTrigger value="upcoming">
                 Upcoming ({upcoming.length})
