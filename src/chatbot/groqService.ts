@@ -9,14 +9,21 @@ import {
 const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY;
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
-async function callGroq(systemPromptText, conversationHistory, userMessage) {
+async function callGroq(
+  systemPromptText: string,
+  conversationHistory: any[],
+  userMessage: string
+) {
   try {
+    // Keep only last 6 messages to avoid rate limits
+    const recentHistory = conversationHistory.slice(-6);
+
     const messages = [
       {
         role: 'system',
         content: systemPromptText + '\n\n' + guidemeDocumentation
       },
-      ...conversationHistory.map(msg => ({
+      ...recentHistory.map((msg: any) => ({
         role: msg.sender === 'user' ? 'user' : 'assistant',
         content: msg.message_text
       })),
@@ -36,13 +43,37 @@ async function callGroq(systemPromptText, conversationHistory, userMessage) {
         model: 'llama-3.1-8b-instant',
         messages,
         temperature: 0.7,
-        max_tokens: 400
+        max_tokens: 300
       })
     });
 
     if (!response.ok) {
       const errorData = await response.json();
       console.error('Groq API error:', errorData);
+
+      if (response.status === 429) {
+        // Rate limited — wait 3 seconds and retry once
+        await new Promise(r => setTimeout(r, 3000));
+        const retryResponse = await fetch(GROQ_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${GROQ_API_KEY}`
+          },
+          body: JSON.stringify({
+            model: 'llama-3.1-8b-instant',
+            messages,
+            temperature: 0.7,
+            max_tokens: 300
+          })
+        });
+
+        if (retryResponse.ok) {
+          const retryData = await retryResponse.json();
+          return retryData.choices[0].message.content;
+        }
+      }
+
       throw new Error(`Groq error: ${response.status}`);
     }
 

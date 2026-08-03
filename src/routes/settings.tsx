@@ -4,6 +4,7 @@ import { createFileRoute, Link } from "@/lib/router-compat";
 import { useRef, useState, useEffect } from "react";
 import { User, Lock, Bell, Palette, Eye, Moon, Sun, PauseCircle, Camera } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -107,12 +108,16 @@ function ProfileCard() {
         .from("avatars")
         .getPublicUrl(filePath);
 
-      const publicUrl = urlData.publicUrl;
+      // Add cache busting timestamp to force browser to reload image
+      const publicUrl = `${urlData.publicUrl}?t=${Date.now()}`;
 
       // Save URL to profiles table
-      await supabase.from("profiles").update({ profile_picture_url: publicUrl }).eq("id", user?.id);
+      await supabase
+        .from("profiles")
+        .update({ profile_picture_url: publicUrl })
+        .eq("id", user?.id);
 
-      // Update local auth context
+      // Update local auth context immediately — navbar updates right away
       updateAvatar(publicUrl);
 
       toast.success("Profile picture updated.");
@@ -462,19 +467,112 @@ function PrivacyOption({
 }
 
 function HibernationCard() {
+  const { user } = useAuth();
+  const [mentorProfileId, setMentorProfileId] = useState<string | null>(null);
   const [enabled, setEnabled] = useState(false);
   const [duration, setDuration] = useState("7");
-  const [allowFollowups, setAllowFollowups] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (user) loadHibernation();
+  }, [user]);
+
+  async function loadHibernation() {
+    setLoading(true);
+    try {
+      const { data } = await supabase
+        .from("mentor_profiles")
+        .select("id, is_hibernating, hibernate_until")
+        .eq("user_id", user!.id)
+        .single();
+
+      if (data) {
+        setMentorProfileId(data.id);
+
+        // Check if still hibernating
+        if (data.is_hibernating && data.hibernate_until) {
+          const hibernateUntil = new Date(data.hibernate_until);
+          if (hibernateUntil > new Date()) {
+            setEnabled(true);
+          } else {
+            // Auto-disable if duration has passed
+            await supabase
+              .from("mentor_profiles")
+              .update({ is_hibernating: false, hibernate_until: null })
+              .eq("id", data.id);
+            setEnabled(false);
+          }
+        } else {
+          setEnabled(data.is_hibernating ?? false);
+        }
+      }
+    } catch (err) {
+      console.error("Error loading hibernation:", err);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function saveHibernation() {
+    if (!mentorProfileId) return;
+    setSaving(true);
+
+    try {
+      const hibernateUntil = enabled
+        ? new Date(
+            Date.now() + parseInt(duration) * 24 * 60 * 60 * 1000
+          )
+            .toISOString()
+            .split("T")[0]
+        : null;
+
+      const { error } = await supabase
+        .from("mentor_profiles")
+        .update({
+          is_hibernating: enabled,
+          hibernate_until: hibernateUntil,
+        })
+        .eq("id", mentorProfileId);
+
+      if (error) {
+        toast.error("Failed to save hibernation settings.");
+        return;
+      }
+
+      toast.success(
+        enabled
+          ? `Hibernation activated for ${duration} day(s). New bookings are paused.`
+          : "Hibernation disabled. You are now accepting bookings."
+      );
+    } catch (err) {
+      toast.error("Something went wrong.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (loading) {
+    return (
+      <Card className="p-6 flex items-center justify-center py-10">
+        <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      </Card>
+    );
+  }
 
   return (
     <Card className="p-6">
       <div className="mb-4 flex items-center gap-2">
         <PauseCircle className="h-5 w-5 text-primary" />
         <h2 className="text-lg font-semibold">Hibernation mode</h2>
+        {enabled && (
+          <Badge variant="secondary" className="ml-2">Active</Badge>
+        )}
       </div>
       <p className="mb-4 text-xs text-muted-foreground">
-        Temporarily pause your mentor profile. New mentees won't be able to book during this
-        period, but already-booked sessions will still take place.
+        Temporarily pause your mentor profile. New mentees won't be
+        able to book during this period, but already-booked sessions
+        will still take place.
       </p>
       <div className="space-y-4">
         <ToggleRow
@@ -486,49 +584,35 @@ function HibernationCard() {
         {enabled && (
           <>
             <Separator />
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label>Pause duration</Label>
-                <Select value={duration} onValueChange={setDuration}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="3">3 days</SelectItem>
-                    <SelectItem value="7">1 week</SelectItem>
-                    <SelectItem value="14">2 weeks</SelectItem>
-                    <SelectItem value="30">1 month</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+            <div className="space-y-2">
+              <Label>Pause duration</Label>
+              <Select value={duration} onValueChange={setDuration}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="3">3 days</SelectItem>
+                  <SelectItem value="7">1 week</SelectItem>
+                  <SelectItem value="14">2 weeks</SelectItem>
+                  <SelectItem value="30">1 month</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-            <Separator />
-            <ToggleRow
-              label="Allow follow-up sessions"
-              description="Let me schedule follow-ups with existing mentees during hibernation."
-              checked={allowFollowups}
-              onCheckedChange={setAllowFollowups}
-            />
           </>
         )}
       </div>
       <div className="mt-5 flex justify-end">
         <Button
+          disabled={saving}
           className="bg-gradient-primary text-primary-foreground hover:opacity-90"
-          onClick={() =>
-            toast.success(
-              enabled
-                ? `Hibernation activated for ${duration} day(s).`
-                : "Hibernation disabled.",
-            )
-          }
+          onClick={saveHibernation}
         >
-          Save hibernation
+          {saving ? "Saving..." : "Save hibernation"}
         </Button>
       </div>
     </Card>
   );
-}
+} 
 
 function NotificationPreferencesCard() {
   const { user } = useAuth();
