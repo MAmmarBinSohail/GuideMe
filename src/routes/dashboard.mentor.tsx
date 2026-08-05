@@ -16,6 +16,7 @@ import {
   Trash2,
   User,
   X,
+  Star
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -280,6 +281,7 @@ function MentorDashboard() {
               <TabsTrigger value="availability">Availability</TabsTrigger>
               <TabsTrigger value="profile">Profile</TabsTrigger>
               <TabsTrigger value="videos">Videos</TabsTrigger>
+              <TabsTrigger value="reviews">Reviews</TabsTrigger>
             </TabsList>
 
             <TabsContent value="upcoming" className="mt-6">
@@ -354,6 +356,10 @@ function MentorDashboard() {
 
             <TabsContent value="videos" className="mt-6">
               <VideosCard />
+            </TabsContent>
+
+            <TabsContent value="reviews" className="mt-6">
+              <ReviewsCard />
             </TabsContent>
           </Tabs>
         )}
@@ -820,7 +826,7 @@ function PricingCard() {
   );
 }
 
-function ProfileTabCard() {
+function ProfileTabCard() { 
   const { user } = useAuth();
   const [mentorProfileId, setMentorProfileId] = useState<string | null>(null);
   const [isVerified, setIsVerified] = useState(false);
@@ -828,6 +834,15 @@ function ProfileTabCard() {
     "education" | "experience" | "certifications"
   >("education");
 
+  
+  // Basic Info state
+  const [bio, setBio] = useState("");
+  const [category, setCategory] = useState("");
+  const [expertiseAreas, setExpertiseAreas] = useState("");
+  const [portfolioUrl, setPortfolioUrl] = useState("");
+  const [yearsOfExperience, setYearsOfExperience] = useState("");
+  const [sessionLanguage, setSessionLanguage] = useState("english");
+  const [savingBasicInfo, setSavingBasicInfo] = useState(false);
   // Education state
   const [education, setEducation] = useState<any[]>([]);
   const [loadingEducation, setLoadingEducation] = useState(true);
@@ -882,6 +897,22 @@ function ProfileTabCard() {
     if (!mp) return;
     setMentorProfileId(mp.id);
 
+    // Load basic info
+      const { data: basicInfo } = await supabase
+        .from("mentor_profiles")
+        .select("bio, category, expertise_areas, portfolio_url, years_of_experience, session_language")
+        .eq("id", mp.id)
+        .single();
+
+      if (basicInfo) {
+        setBio(basicInfo.bio ?? "");
+        setCategory(basicInfo.category ?? "");
+        setExpertiseAreas((basicInfo.expertise_areas ?? []).join(", "));
+        setPortfolioUrl(basicInfo.portfolio_url ?? "");
+        setYearsOfExperience(basicInfo.years_of_experience?.toString() ?? "");
+        setSessionLanguage(basicInfo.session_language ?? "english");
+      }
+
     const { data: profile } = await supabase
       .from("profiles")
       .select("is_verified")
@@ -928,6 +959,52 @@ function ProfileTabCard() {
       .order("issue_year", { ascending: false });
     setCertifications(data || []);
     setLoadingCertifications(false);
+  }
+
+  async function saveBasicInfo() {
+    if (!mentorProfileId) return;
+    setSavingBasicInfo(true);
+
+    try {
+      const expertiseArray = expertiseAreas
+        .split(",")
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0);
+
+      const { error } = await supabase
+        .from("mentor_profiles")
+        .update({
+          bio,
+          category,
+          expertise_areas: expertiseArray,
+          portfolio_url: portfolioUrl || null,
+          years_of_experience: yearsOfExperience
+            ? parseInt(yearsOfExperience)
+            : null,
+          session_language: sessionLanguage,
+        })
+        .eq("id", mentorProfileId);
+
+      if (error) {
+        toast.error("Failed to save basic info.");
+        return;
+      }
+
+      toast.success("Basic info saved successfully.");
+
+      // Refresh verification status
+      const { data } = await supabase
+        .from("profiles")
+        .select("is_verified")
+        .eq("id", user!.id)
+        .single();
+      setIsVerified(data?.is_verified ?? false);
+
+    } catch (err) {
+      toast.error("Something went wrong.");
+    } finally {
+      setSavingBasicInfo(false);
+    }
   }
 
   async function saveEducation() {
@@ -1061,6 +1138,114 @@ function ProfileTabCard() {
               ? "You have a verified badge on your public profile."
               : "To get verified: add at least 1 education entry, fill your bio, upload a profile picture, and set your availability."}
           </p>
+        </div>
+      </Card>
+
+      {/* Basic Info Section */}
+      <Card className="p-5">
+        <h3 className="font-semibold mb-4">Basic Information</h3>
+        <div className="space-y-4">
+
+          {/* Bio */}
+          <div className="space-y-1">
+            <Label className="text-xs">Bio *</Label>
+            <Textarea
+              placeholder="Write a short professional bio (2-4 sentences)..."
+              value={bio}
+              onChange={(e) => setBio(e.target.value)}
+              rows={3}
+            />
+            <p className="text-xs text-muted-foreground">
+              Required for verification
+            </p>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            {/* Category */}
+            <div className="space-y-1">
+              <Label className="text-xs">Category *</Label>
+              <select
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+              >
+                <option value="">Select category</option>
+                <option value="academic">Academic</option>
+                <option value="career">Career</option>
+                <option value="business">Business</option>
+                <option value="technology">Technology</option>
+                <option value="health">Health</option>
+                <option value="personal">Personal</option>
+                <option value="creative">Creative</option>
+                <option value="finance">Finance</option>
+                <option value="legal">Legal</option>
+                <option value="leadership">Leadership</option>
+                <option value="language">Language</option>
+                <option value="engineering">Engineering</option>
+              </select>
+            </div>
+
+            {/* Session Language */}
+            <div className="space-y-1">
+              <Label className="text-xs">Session Language</Label>
+              <select
+                value={sessionLanguage}
+                onChange={(e) => setSessionLanguage(e.target.value)}
+                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+              >
+                <option value="english">English</option>
+                <option value="urdu">Urdu</option>
+                <option value="both">Both</option>
+              </select>
+            </div>
+
+            {/* Years of Experience */}
+            <div className="space-y-1">
+              <Label className="text-xs">Years of Experience</Label>
+              <Input
+                type="number"
+                min={0}
+                placeholder="e.g. 5"
+                value={yearsOfExperience}
+                onChange={(e) => setYearsOfExperience(e.target.value)}
+              />
+            </div>
+
+            {/* Portfolio URL */}
+            <div className="space-y-1">
+              <Label className="text-xs">Portfolio / LinkedIn URL</Label>
+              <Input
+                type="url"
+                placeholder="https://linkedin.com/in/yourname"
+                value={portfolioUrl}
+                onChange={(e) => setPortfolioUrl(e.target.value)}
+              />
+            </div>
+          </div>
+
+          {/* Expertise Areas */}
+          <div className="space-y-1">
+            <Label className="text-xs">Expertise Areas</Label>
+            <Input
+              placeholder="e.g. Python, Machine Learning, Data Science (comma separated)"
+              value={expertiseAreas}
+              onChange={(e) => setExpertiseAreas(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              Separate multiple areas with commas
+            </p>
+          </div>
+
+        </div>
+
+        <div className="mt-4 flex justify-end">
+          <Button
+            disabled={savingBasicInfo}
+            className="bg-gradient-primary text-primary-foreground hover:opacity-90"
+            onClick={saveBasicInfo}
+          >
+            {savingBasicInfo ? "Saving..." : "Save basic info"}
+          </Button>
         </div>
       </Card>
 
@@ -2122,6 +2307,176 @@ function VideosCard() {
     </Card>
   );
 }
+
+function ReviewsCard() {
+  const { user } = useAuth();
+  const [reviews, setReviews] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [averageRating, setAverageRating] = useState(0);
+
+  useEffect(() => {
+    if (user) loadReviews();
+  }, [user]);
+
+  async function loadReviews() {
+    setLoading(true);
+    try {
+      const { data: mp } = await supabase
+        .from("mentor_profiles")
+        .select("id, average_rating")
+        .eq("user_id", user!.id)
+        .single();
+
+      if (!mp) return;
+
+      setAverageRating(mp.average_rating ?? 0);
+
+      const { data } = await supabase
+        .from("reviews")
+        .select(`
+          *,
+          profiles!reviews_mentee_id_fkey (
+            full_name,
+            profile_picture_url
+          )
+        `)
+        .eq("mentor_id", mp.id)
+        .order("created_at", { ascending: false });
+
+      setReviews(data || []);
+    } catch (err) {
+      console.error("Error loading reviews:", err);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  if (loading) {
+    return (
+      <Card className="p-6 flex items-center justify-center py-16">
+        <div className="h-6 w-6 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="p-6">
+      <div className="mb-4 flex items-center gap-2">
+        <Star className="h-5 w-5 text-primary" />
+        <h2 className="text-lg font-semibold">My Reviews</h2>
+      </div>
+
+      {/* Rating Summary */}
+      <div className="mb-6 rounded-xl border bg-muted/30 p-4 flex items-center gap-4">
+        <div className="text-center">
+          <p className="text-4xl font-bold text-gradient-primary">
+            {averageRating > 0 ? averageRating.toFixed(1) : "—"}
+          </p>
+          <div className="flex items-center gap-0.5 mt-1 justify-center">
+            {[1, 2, 3, 4, 5].map((star) => (
+              <Star
+                key={star}
+                className={`h-4 w-4 ${
+                  star <= Math.round(averageRating)
+                    ? "fill-yellow-400 text-yellow-400"
+                    : "text-gray-300"
+                }`}
+              />
+            ))}
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">
+            Average rating
+          </p>
+        </div>
+        <div className="border-l pl-4">
+          <p className="text-2xl font-bold">{reviews.length}</p>
+          <p className="text-xs text-muted-foreground">
+            Total reviews
+          </p>
+        </div>
+      </div>
+
+      {/* Reviews List */}
+      {reviews.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-12 text-center">
+          <Star className="h-10 w-10 text-muted-foreground mb-3" />
+          <p className="text-sm font-medium">No reviews yet</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            Reviews from mentees will appear here after sessions.
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {reviews.map((review) => {
+            const menteeName =
+              review.profiles?.full_name ?? "Anonymous";
+            const menteeAvatar =
+              review.profiles?.profile_picture_url;
+            const initials = menteeName
+              .split(" ")
+              .map((n: string) => n[0])
+              .join("")
+              .toUpperCase()
+              .slice(0, 2);
+
+            return (
+              <div
+                key={review.id}
+                className="rounded-xl border p-4 space-y-2"
+              >
+                <div className="flex items-center gap-3">
+                  {menteeAvatar ? (
+                    <img
+                      src={menteeAvatar}
+                      alt={menteeName}
+                      className="h-9 w-9 rounded-full border object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-primary text-xs font-bold text-primary-foreground">
+                      {initials}
+                    </div>
+                  )}
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold">{menteeName}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(review.created_at).toLocaleDateString(
+                        undefined,
+                        {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                        }
+                      )}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-0.5">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <Star
+                        key={star}
+                        className={`h-4 w-4 ${
+                          star <= review.rating
+                            ? "fill-yellow-400 text-yellow-400"
+                            : "text-gray-300"
+                        }`}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                {review.review_text && (
+                  <p className="text-sm text-muted-foreground pl-12">
+                    {review.review_text}
+                  </p>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </Card>
+  );
+}
+
 
 function VerificationCard() {
   const { user } = useAuth();
