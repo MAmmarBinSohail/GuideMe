@@ -35,6 +35,7 @@ interface MentorData {
   years_of_experience: number | null;
   session_language: string | null;
   portfolio_url: string | null;
+
   profiles: {
     full_name: string;
     profile_picture_url: string | null;
@@ -50,7 +51,7 @@ function MentorsPage() {
   const [mentors, setMentors] = useState<MentorData[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
-  const [maxPrice, setMaxPrice] = useState<number[]>([1000]);
+  const [maxPrice, setMaxPrice] = useState<number[]>([5000]);
   const [minRating, setMinRating] = useState(0);
   const [selectedCats, setSelectedCats] = useState<string[]>(
     initialCategory ? [initialCategory] : [],
@@ -81,7 +82,8 @@ function MentorsPage() {
         `)
         .eq("is_available", true)
         .or("is_hibernating.is.null,is_hibernating.eq.false")
-        .order("average_rating", { ascending: false });
+        .not("category", "is", null)
+        .order("average_rating", { ascending: false, nullsFirst: false });
 
       if (error) {
         console.error("Error fetching mentors:", error);
@@ -208,13 +210,13 @@ function MentorsPage() {
             <div className="mb-3 flex items-center justify-between">
               <h3 className="text-sm font-semibold">Max price (PKR)</h3>
               <span className="text-sm font-medium text-primary">
-                {maxPrice[0] === 1000 ? "Any" : `PKR ${maxPrice[0]}`}
+                {maxPrice[0] === 5000 ? "Any" : `PKR ${maxPrice[0]}`}
               </span>
             </div>
             <Slider
               value={maxPrice}
               onValueChange={setMaxPrice}
-              max={1000}
+              max={5000}
               step={50}
             />
           </Card>
