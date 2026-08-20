@@ -1,7 +1,8 @@
 import { createFileRoute, Link } from "@/lib/router-compat";
-import { useState, useCallback } from "react";
+import { getCategory } from "@/lib/categories";
+import { useEffect, useState, useCallback } from "react";
 import {
-  Search,
+  BadgeCheck,
   Sparkles,
   Star,
   TrendingUp,
@@ -27,14 +28,14 @@ import {
   type CarouselApi,
 } from "@/components/ui/carousel";
 import heroBg from "@/assets/hero-bg.jpg";
-import { MOCK_MENTORS } from "@/lib/mock-data";
 import { MENTOR_CATEGORIES } from "@/lib/categories";
+import { supabase } from "@/supabaseClient";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "GuideMe — Find Your Mentor" },
-      {
+      { 
         name: "description",
         content:
           "Browse expert mentors across academics, career, tech, design, business and more. Book a session in minutes.",
@@ -120,10 +121,77 @@ function Home() {
 
   const scrollPrev = useCallback(() => api?.scrollPrev(), [api]);
   const scrollNext = useCallback(() => api?.scrollNext(), [api]);
+  const [trendingMentors, setTrendingMentors] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetchTrendingMentors();
+  }, []);
+
+  async function fetchTrendingMentors() {
+    try {
+      // Get all confirmed/completed bookings
+      const { data: bookingData, error: bookingError } = await supabase
+        .from("bookings")
+        .select("mentor_id")
+        .in("status", ["confirmed", "completed"]);
+
+      if (bookingError || !bookingData || bookingData.length === 0) return;
+
+      // Count bookings per mentor
+      const countMap: Record<string, number> = {};
+      bookingData.forEach((b: any) => {
+        countMap[b.mentor_id] = (countMap[b.mentor_id] || 0) + 1;
+      });
+
+      // Get top mentor IDs sorted by booking count
+      const topMentorIds = Object.entries(countMap)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 8)
+        .map(([id]) => id);
+
+      if (topMentorIds.length === 0) return;
+
+      // Fetch mentor details for those IDs
+      const { data: mentorData, error: mentorError } = await supabase
+        .from("mentor_profiles")
+        .select(`
+          id,
+          category,
+          average_rating,
+          is_free_first_session,
+          initial_session_price,
+          is_available,
+          is_hibernating,
+          profiles (
+            full_name,
+            profile_picture_url,
+            is_verified
+          )
+        `)
+        .in("id", topMentorIds)
+        .eq("is_available", true)
+        .not("category", "is", null);
+
+      if (mentorError || !mentorData) return;
+
+      // Add booking counts and sort
+      const mentorsWithCount = mentorData
+        .filter((m) => !m.is_hibernating)
+        .map((m) => ({
+          ...m,
+          booking_count: countMap[m.id] || 0,
+        }))
+        .sort((a, b) => b.booking_count - a.booking_count);
+
+      setTrendingMentors(mentorsWithCount);
+    } catch (err) {
+      console.error("Error fetching trending mentors:", err);
+    }
+  }
 
   return (
     <div>
-      {/* Hero with background image */}
+      {/* Background image */}
       <section className="relative min-h-[520px] overflow-hidden md:min-h-[600px]">
         <img
           src={heroBg}
@@ -141,15 +209,13 @@ function Home() {
             </div>
             <h1 className="text-4xl font-bold tracking-tight md:text-6xl">
               Find the right{" "}
-              <span className="text-gradient-primary">mentor</span> for your
-              next chapter.
+              <span className="text-gradient-primary">mentor</span> for your next chapter.
             </h1>
             <p className="mx-auto mt-5 max-w-xl text-base text-muted-foreground md:text-lg">
-              GuideMe connects you with vetted mentors and counselors across
-              academics, career, tech, business and more — on your schedule.
+              GuideMe connects you with vetted mentors and counselors across academics, career, tech, business and more — on your schedule.
             </p>
 
-            <form
+            {/* <form
               onSubmit={(e) => e.preventDefault()}
               className="mx-auto mt-8 flex max-w-xl items-center gap-2 rounded-full border bg-card p-1.5 shadow-elegant"
             >
@@ -166,7 +232,7 @@ function Home() {
               >
                 Search
               </Button>
-            </form>
+            </form> */}
           </div>
         </div>
       </section>
@@ -268,7 +334,7 @@ function Home() {
         </div>
       </section>
 
-      {/* Trending mentors */}
+      {/* Mock Trending mentors */}
       <section className="container mx-auto px-4 pb-20">
         <div className="mb-6 flex items-end justify-between">
           <div>
@@ -287,32 +353,99 @@ function Home() {
           </Button>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {MOCK_MENTORS.slice(0, 4).map((m) => (
-            <Card key={m.id} className="flex flex-col gap-3 p-5 transition hover:shadow-elegant">
-              <div className="flex items-center gap-3">
-                <img src={m.avatar} alt={m.name} className="h-11 w-11 rounded-full border bg-muted" />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-semibold">{m.name}</p>
-                  <p className="truncate text-xs text-muted-foreground">{m.title}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-1 text-xs">
-                <Star className="h-3.5 w-3.5 fill-primary text-primary" />
-                <span className="font-medium">{m.rating}</span>
-                <span className="text-muted-foreground">({m.reviews})</span>
-              </div>
-              <p className="line-clamp-2 text-xs text-muted-foreground">{m.bio}</p>
-              <div className="mt-auto flex items-center justify-between border-t pt-3 text-sm">
-                <span className="font-semibold text-gradient-primary">${m.pricePerHour}/hr</span>
-                <Button size="sm" variant="ghost" asChild>
-                  <Link to="/mentors/$id" params={{ id: m.id }}>View</Link>
-                </Button>
-              </div>
-            </Card>
-          ))}
-        </div>
-      </section>
+        {trendingMentors.length === 0 ? (
+          <div className="flex items-center justify-center py-12">
+            <p className="text-sm text-muted-foreground">
+              No trending mentors yet. Be the first to book a session!
+            </p>
+          </div>
+        ) : (
+          <Carousel
+            opts={{ align: "start", loop: true }}
+            plugins={[Autoplay({ delay: 3000, stopOnInteraction: true })]}
+            className="w-full"
+          >
+            <CarouselContent className="-ml-3">
+              {trendingMentors.map((mentor) => {
+                const name = mentor.profiles?.full_name ?? "Mentor";
+                const isVerified = mentor.profiles?.is_verified ?? false;
+                const avatar = mentor.profiles?.profile_picture_url;
+                const initials = name
+                  .split(" ")
+                  .map((n: string) => n[0])
+                  .join("")
+                  .toUpperCase()
+                  .slice(0, 2);
+                const category = getCategory(mentor.category ?? "");
+                const CatIcon = category?.icon;
+
+                return (
+                  <CarouselItem
+                    key={mentor.id}
+                    className="pl-3 basis-full sm:basis-1/2 lg:basis-1/4"
+                  >
+                    <Link
+                      to={`/mentors/${mentor.id}`}
+                      className="block rounded-2xl border bg-card p-4 shadow-sm transition hover:shadow-md hover:border-primary/30 h-full"
+                    >
+                      <div className="flex items-center gap-3 mb-3">
+                        {avatar ? (
+                          <img
+                            src={avatar}
+                            alt={name}
+                            className="h-11 w-11 rounded-full border object-cover shrink-0"
+                          />
+                        ) : (
+                          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-primary text-sm font-bold text-primary-foreground">
+                            {initials}
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1">
+                            <p className="text-sm font-semibold truncate">
+                              {name}
+                            </p>
+                            {isVerified && (
+                              <BadgeCheck className="h-3.5 w-3.5 text-primary shrink-0" />
+                            )}
+                          </div>
+                          {category && (
+                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                              {CatIcon && <CatIcon className="h-3 w-3 shrink-0" />}
+                              <span className="truncate">{category.label}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between text-xs mt-auto pt-2 border-t">
+                        <div className="flex items-center gap-1">
+                          <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />
+                          <span className="font-medium">
+                            {mentor.average_rating
+                              ? Number(mentor.average_rating).toFixed(1)
+                              : "New"}
+                          </span>
+                        </div>
+                        <span className="text-muted-foreground">
+                          {mentor.booking_count} session{mentor.booking_count !== 1 ? "s" : ""}
+                        </span>
+                        <span className="font-semibold text-gradient-primary">
+                          {mentor.is_free_first_session
+                            ? "Free 1st"
+                            : mentor.initial_session_price > 0
+                            ? `PKR ${mentor.initial_session_price}`
+                            : "Free"}
+                        </span>
+                      </div>
+                    </Link>
+                  </CarouselItem>
+                );
+              })}
+            </CarouselContent>
+          </Carousel>
+          )}
+        </section>
     </div>
   );
 }

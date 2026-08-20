@@ -418,7 +418,7 @@ function MenteeDashboard() {
                     return (
                       <div
                         key={payment.id}
-                        className="flex items-center justify-between rounded-xl border bg-white p-4 shadow-sm"
+                        className="flex items-center justify-between rounded-xl border bg-card p-4 shadow-sm"
                       >
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-1">
@@ -427,8 +427,8 @@ function MenteeDashboard() {
                             </p>
                             <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium capitalize ${
                               payment.payment_type === 'overage'
-                                ? 'bg-amber-100 text-amber-700'
-                                : 'bg-indigo-50 text-indigo-600'
+                                ? 'bg-amber-500/20 text-amber-400'
+                                : 'bg-indigo-500/20 text-indigo-400'
                             }`}>
                               {payment.payment_type === 'overage'
                                 ? 'Extra Time'
@@ -436,8 +436,8 @@ function MenteeDashboard() {
                             </span>
                             <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
                               payment.payment_status === 'completed'
-                                ? 'bg-green-50 text-green-600'
-                                : 'bg-gray-100 text-gray-500'
+                                ? 'bg-green-500/20 text-green-400'
+                                : 'bg-muted text-muted-foreground'
                             }`}>
                               {payment.payment_status}
                             </span>

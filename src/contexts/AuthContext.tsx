@@ -74,12 +74,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             .single();
 
           if (profile) {
+            // If profile exists but no role set (Google OAuth new user)
+            if (!profile.role || !profile.full_name) {
+              await supabase
+                .from("profiles")
+                .update({
+                  full_name: profile.full_name ||
+                    session.user.user_metadata?.full_name ||
+                    session.user.email?.split("@")[0],
+                  email: session.user.email,
+                })
+                .eq("id", session.user.id);
+            }
+
             setUser({
               id: session.user.id,
-              name: profile.full_name,
+              name: profile.full_name ||
+                session.user.user_metadata?.full_name ||
+                session.user.email?.split("@")[0] || "",
               email: session.user.email!,
-              role: profile.role,
-              avatar: profile.profile_picture_url || undefined,
+              role: profile.role || "mentee",
+              avatar: profile.profile_picture_url ||
+                session.user.user_metadata?.avatar_url || undefined,
             });
           }
         }
