@@ -238,7 +238,7 @@ function Home() {
       </section>
 
       {/* Features carousel */}
-      <section className="bg-gradient-soft py-16">
+      <section id="features" className="bg-gradient-soft py-16">
         <div className="container mx-auto px-4">
           <div className="mb-8 text-center">
             <h2 className="text-2xl font-bold tracking-tight md:text-3xl">

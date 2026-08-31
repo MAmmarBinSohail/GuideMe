@@ -5,33 +5,33 @@ import {
   MapPin,
   Phone,
   Github,
-  Twitter,
   Linkedin,
   Instagram,
-  Heart,
+  Heart
 } from "lucide-react";
+import { FaXTwitter } from "react-icons/fa6";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { MENTOR_CATEGORIES } from "@/lib/categories";
 import { useAuth } from "@/contexts/AuthContext";
+import { href } from "react-router-dom";
 
 const CATEGORIES = MENTOR_CATEGORIES;
 
 const SUPPORT_LINKS = [
-  { label: "Help Center", href: "#" },
-  { label: "How It Works", href: "#" },
-  { label: "Pricing", href: "#" },
+  { label: "Help Center", href: "/ai-assistant" },
+  { label: "Features", href: "#features" },
+  { label: "Pricing", href: "/mentors" },
   { label: "Terms of Service", href: "#" },
-  { label: "Privacy Policy", href: "#" },
-  { label: "Cookie Policy", href: "#" },
+  { label: "Privacy Policy", href: "#" }
 ];
 
 const SOCIALS = [
-  { icon: Twitter, label: "Twitter", href: "#" },
-  { icon: Linkedin, label: "LinkedIn", href: "#" },
+  { icon: FaXTwitter, label: "Twitter", href: "https://x.com/ammar90340" },
+  { icon: Linkedin, label: "LinkedIn", href: "https://www.linkedin.com/in/ammarsohail56/" },
   { icon: Instagram, label: "Instagram", href: "#" },
-  { icon: Github, label: "GitHub", href: "#" },
+  { icon: Github, label: "GitHub", href: "https://github.com/MAmmarBinSohail/GuideMe" },
 ];
 
 export function MinimalFooter() {
@@ -95,11 +95,11 @@ export function Footer() {
               </div>
               <div className="flex items-center gap-2">
                 <Mail className="h-4 w-4 text-primary shrink-0" />
-                <span>contact@guideme.edu.pk</span>
+                <span>bsef22m056@pucit.edu.pk</span>
               </div>
               <div className="flex items-center gap-2">
                 <Phone className="h-4 w-4 text-primary shrink-0" />
-                <span>+92-42-9902-XXXX</span>
+                <span>+92-30-0079-3940</span>
               </div>
             </div>
             <div className="flex items-center gap-2">
