@@ -113,3 +113,101 @@ export async function sendConversationMessage(
 
   return await callGroq(prompt, conversationHistory, userMessage);
 }
+
+
+// import guidemeDocumentation from './guidemeDocumentation';
+// import {
+//   getMenteeOnboardingPrompt,
+//   getMentorOnboardingPrompt,
+//   getMenteeConversationPrompt,
+//   getMentorConversationPrompt
+// } from './systemPrompt';
+
+// const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
+//   const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${GEMINI_API_KEY}`;
+
+// async function callGemini(
+//   systemPromptText: string,
+//   conversationHistory: any[],
+//   userMessage: string
+// ): Promise<string> {
+//   try {
+//     // Build conversation history in Gemini format
+//     const contents: any[] = [];
+
+//     // Add conversation history
+//     const recentHistory = conversationHistory.slice(-6);
+//     recentHistory.forEach((msg: any) => {
+//       contents.push({
+//         role: msg.sender === 'user' ? 'user' : 'model',
+//         parts: [{ text: msg.message_text }]
+//       });
+//     });
+
+//     // Add current user message
+//     contents.push({
+//       role: 'user',
+//       parts: [{ text: userMessage }]
+//     });
+
+//     const response = await fetch(GEMINI_URL, {
+//       method: 'POST',
+//       headers: {
+//         'Content-Type': 'application/json',
+//       },
+//       body: JSON.stringify({
+//         system_instruction: {
+//           parts: [{
+//             text: systemPromptText + '\n\n' + guidemeDocumentation
+//           }]
+//         },
+//         contents,
+//         generationConfig: {
+//           temperature: 0.7,
+//           maxOutputTokens: 400,
+//         }
+//       })
+//     });
+
+//     if (!response.ok) {
+//       const errorData = await response.json();
+//       console.error('Gemini API error:', errorData);
+//       throw new Error(`Gemini error: ${response.status}`);
+//     }
+
+//     const data = await response.json();
+//     return data.candidates[0].content.parts[0].text;
+
+//   } catch (error) {
+//     console.error('Gemini API call failed:', error);
+//     return 'Sorry, I am having trouble responding right now. Please try again in a moment.';
+//   }
+// }
+
+// export async function sendOnboardingMessage(
+//   conversationHistory: any[],
+//   userMessage: string,
+//   userName: string,
+//   userRole: string
+// ): Promise<string> {
+//   const prompt = userRole === 'mentor'
+//     ? getMentorOnboardingPrompt(userName)
+//     : getMenteeOnboardingPrompt(userName);
+
+//   return await callGemini(prompt, conversationHistory, userMessage);
+// }
+
+// export async function sendConversationMessage(
+//   conversationHistory: any[],
+//   userMessage: string,
+//   onboardingData: Record<string, string>,
+//   userName: string,
+//   userRole: string,
+//   mentorContext: string = ''
+// ): Promise<string> {
+//   const prompt = userRole === 'mentor'
+//     ? getMentorConversationPrompt(userName, onboardingData)
+//     : getMenteeConversationPrompt(userName, onboardingData, mentorContext);
+
+//   return await callGemini(prompt, conversationHistory, userMessage);
+// }

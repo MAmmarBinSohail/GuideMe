@@ -471,7 +471,7 @@ function MenteeDashboard() {
                   })}
 
                   {/* Total summary */}
-                  <div className="flex items-center justify-between rounded-xl border-2 border-primary/20 bg-indigo-50 p-4">
+                  <div className="flex items-center justify-between rounded-xl border-2 border-primary/20 bg-card p-4">
                     <p className="font-semibold text-sm">Total Spent</p>
                     <p className="text-xl font-bold text-gradient-primary">
                       PKR {payments.reduce((sum, p) => sum + (p.amount || 0), 0)}
