@@ -285,7 +285,9 @@ function BookSessionPage() {
 
     try {
       const dateStr = selectedDate.toISOString().split("T")[0];
-      const scheduledAt = `${dateStr}T${selectedTime}`;
+      // selectedTime is HH:MM format from the DB, just use it directly
+      const scheduledAt = `${dateStr}T${selectedTime.slice(0, 5)}:00`;
+      console.log("scheduledAt being sent:", scheduledAt);
 
       const { data: overlapCheck } = await supabase.rpc(
         "check_booking_overlap",
@@ -327,18 +329,17 @@ function BookSessionPage() {
 
       // If paid, create the payment record
       if (sessionPrice > 0) {
+        const commission = Math.round(sessionPrice * 0.10);
+        const mentorPayout = sessionPrice - commission;
+
         await supabase.from("payments").insert({
           booking_id: newBooking.id,
           user_id: user.id,
           amount: sessionPrice,
+          platform_commission: commission,
+          mentor_payout: mentorPayout,
           payment_status: "completed",
           payment_type: "session",
-          payment_method: selectedMethod,
-          transaction_reference:
-            formData.transaction_id ||
-            formData.transaction_reference ||
-            formData.reference ||
-            null,
           paid_at: new Date().toISOString(),
         });
       }
@@ -393,7 +394,13 @@ function BookSessionPage() {
     const errors: Record<string, string> = {};
 
     if (selectedMethod === "jazzcash" || selectedMethod === "easypaisa") {
-      if (!formData.phone) errors.phone = "Phone number is required.";
+      if (!formData.phone) {
+        errors.phone = "Phone number is required.";
+      } else if (formData.phone.length !== 11) {
+        errors.phone = "Phone number must be exactly 11 digits.";
+      } else if (!formData.phone.startsWith("03")) {
+        errors.phone = "Phone number must start with 03.";
+      }
       if (!formData.transaction_id)
         errors.transaction_id = "Transaction ID is required.";
     }
@@ -402,19 +409,75 @@ function BookSessionPage() {
       if (!formData.bank_name) errors.bank_name = "Bank name is required.";
       if (!formData.account_title)
         errors.account_title = "Account title is required.";
-      if (!formData.account_number)
+      if (!formData.account_number) {
         errors.account_number = "Account number is required.";
+      } else if (formData.account_number.length < 10) {
+        errors.account_number = "Account number must be at least 10 digits.";
+      }
       if (!formData.transaction_reference)
         errors.transaction_reference = "Transaction reference is required.";
     }
 
     if (selectedMethod === "wise" || selectedMethod === "payoneer") {
-      if (!formData.email) errors.email = "Email address is required.";
-      if (!formData.reference) errors.reference = "Reference number is required.";
+      if (!formData.email) {
+        errors.email = "Email address is required.";
+      } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+        errors.email = "Please enter a valid email address.";
+      }
+      if (!formData.reference)
+        errors.reference = "Reference number is required.";
     }
 
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
+  }
+
+  function validateField(field: string, value: string) {
+    const errors = { ...formErrors };
+
+    if (field === "phone") {
+      if (!value) {
+        errors.phone = "Phone number is required.";
+      } else if (value.length < 11) {
+        errors.phone = `${value.length}/11 digits entered.`;
+      } else if (value.length === 11 && !value.startsWith("03")) {
+        errors.phone = "Must start with 03.";
+      } else {
+        delete errors.phone;
+      }
+    }
+
+    if (field === "account_number") {
+      if (!value) {
+        errors.account_number = "Account number is required.";
+      } else if (value.length < 10) {
+        errors.account_number = `${value.length}/10+ digits entered.`;
+      } else {
+        delete errors.account_number;
+      }
+    }
+
+    if (field === "transaction_id" || field === "transaction_reference" || field === "reference") {
+      if (!value) {
+        errors[field] = "This field is required.";
+      } else if (value.length < 6) {
+        errors[field] = `Too short — minimum 6 characters.`;
+      } else {
+        delete errors[field];
+      }
+    }
+
+    if (field === "email") {
+      if (!value) {
+        errors.email = "Email is required.";
+      } else if (!/\S+@\S+\.\S+/.test(value)) {
+        errors.email = "Enter a valid email address.";
+      } else {
+        delete errors.email;
+      }
+    }
+
+    setFormErrors(errors);
   }
 
   async function handlePayNow() {
@@ -519,6 +582,7 @@ function BookSessionPage() {
         <h2 className="mb-1 text-base font-semibold">Select a date</h2>
         <p className="mb-4 text-xs text-muted-foreground">
           Choose a date, then pick an available start time.
+          All times are in <strong>Pakistan Standard Time (PKT, UTC+5)</strong>.
         </p>
 
         <div className="-mx-1 flex gap-2 overflow-x-auto pb-2">
@@ -810,13 +874,19 @@ function BookSessionPage() {
                   <div className="space-y-1">
                     <Label className="text-xs">Your JazzCash Number *</Label>
                     <Input
-                      placeholder="03XX-XXXXXXX"
+                      placeholder="03XXXXXXXXX"
                       value={formData.phone ?? ""}
-                      onChange={(e) =>
-                        setFormData({ ...formData, phone: e.target.value })
-                      }
+                      maxLength={11}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/\D/g, "");
+                        setFormData({ ...formData, phone: val });
+                        validateField("phone", val);
+                      }}
                       className={formErrors.phone ? "border-destructive" : ""}
                     />
+                    <p className="text-xs text-muted-foreground">
+                      Enter 11-digit JazzCash number (e.g. 03001234567)
+                    </p>
                     {formErrors.phone && (
                       <p className="text-xs text-destructive">{formErrors.phone}</p>
                     )}
@@ -826,15 +896,13 @@ function BookSessionPage() {
                     <Input
                       placeholder="e.g. TXN123456789"
                       value={formData.transaction_id ?? ""}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          transaction_id: e.target.value,
-                        })
-                      }
-                      className={
-                        formErrors.transaction_id ? "border-destructive" : ""
-                      }
+                      maxLength={20}
+                      onChange={(e) => {
+                        const val = e.target.value.toUpperCase();
+                        setFormData({ ...formData, transaction_id: val });
+                        validateField("transaction_id", val);
+                      }}
+                      className={formErrors.transaction_id ? "border-destructive" : ""}
                     />
                     {formErrors.transaction_id && (
                       <p className="text-xs text-destructive">
@@ -855,13 +923,19 @@ function BookSessionPage() {
                   <div className="space-y-1">
                     <Label className="text-xs">Your Easypaisa Number *</Label>
                     <Input
-                      placeholder="03XX-XXXXXXX"
+                      placeholder="03XXXXXXXXX"
                       value={formData.phone ?? ""}
-                      onChange={(e) =>
-                        setFormData({ ...formData, phone: e.target.value })
-                      }
+                      maxLength={11}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/\D/g, "");
+                        setFormData({ ...formData, phone: val });
+                        validateField("phone", val);
+                      }}
                       className={formErrors.phone ? "border-destructive" : ""}
                     />
+                    <p className="text-xs text-muted-foreground">
+                      Enter 11-digit Easypaisa number (e.g. 03001234567)
+                    </p>
                     {formErrors.phone && (
                       <p className="text-xs text-destructive">{formErrors.phone}</p>
                     )}
@@ -871,15 +945,13 @@ function BookSessionPage() {
                     <Input
                       placeholder="e.g. EP123456789"
                       value={formData.transaction_id ?? ""}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          transaction_id: e.target.value,
-                        })
-                      }
-                      className={
-                        formErrors.transaction_id ? "border-destructive" : ""
-                      }
+                      maxLength={20}
+                      onChange={(e) => {
+                        const val = e.target.value.toUpperCase();
+                        setFormData({ ...formData, transaction_id: val });
+                        validateField("transaction_id", val);
+                      }}
+                      className={formErrors.transaction_id ? "border-destructive" : ""}
                     />
                     {formErrors.transaction_id && (
                       <p className="text-xs text-destructive">
@@ -903,20 +975,14 @@ function BookSessionPage() {
                       <Input
                         placeholder="e.g. HBL"
                         value={formData.bank_name ?? ""}
+                        maxLength={50}
                         onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            bank_name: e.target.value,
-                          })
+                          setFormData({ ...formData, bank_name: e.target.value })
                         }
-                        className={
-                          formErrors.bank_name ? "border-destructive" : ""
-                        }
+                        className={formErrors.bank_name ? "border-destructive" : ""}
                       />
                       {formErrors.bank_name && (
-                        <p className="text-xs text-destructive">
-                          {formErrors.bank_name}
-                        </p>
+                        <p className="text-xs text-destructive">{formErrors.bank_name}</p>
                       )}
                     </div>
                     <div className="space-y-1">
@@ -924,66 +990,49 @@ function BookSessionPage() {
                       <Input
                         placeholder="e.g. Muhammad Ahmed"
                         value={formData.account_title ?? ""}
+                        maxLength={60}
                         onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            account_title: e.target.value,
-                          })
+                          setFormData({ ...formData, account_title: e.target.value })
                         }
-                        className={
-                          formErrors.account_title ? "border-destructive" : ""
-                        }
+                        className={formErrors.account_title ? "border-destructive" : ""}
                       />
                       {formErrors.account_title && (
-                        <p className="text-xs text-destructive">
-                          {formErrors.account_title}
-                        </p>
+                        <p className="text-xs text-destructive">{formErrors.account_title}</p>
                       )}
                     </div>
                     <div className="space-y-1 sm:col-span-2">
-                      <Label className="text-xs">Account Number *</Label>
+                      <Label className="text-xs">Account Number * (digits only)</Label>
                       <Input
                         placeholder="e.g. 0123456789012345"
                         value={formData.account_number ?? ""}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            account_number: e.target.value,
-                          })
-                        }
-                        className={
-                          formErrors.account_number ? "border-destructive" : ""
-                        }
+                        maxLength={24}
+                        onChange={(e) => {
+                          const val = e.target.value.replace(/\D/g, "");
+                          setFormData({ ...formData, account_number: val });
+                          validateField("account_number", val);
+                        }}
+                        className={formErrors.account_number ? "border-destructive" : ""}
                       />
                       {formErrors.account_number && (
-                        <p className="text-xs text-destructive">
-                          {formErrors.account_number}
-                        </p>
+                        <p className="text-xs text-destructive">{formErrors.account_number}</p>
                       )}
                     </div>
                     <div className="space-y-1 sm:col-span-2">
-                      <Label className="text-xs">
-                        Transaction Reference *
-                      </Label>
+                      <Label className="text-xs">Transaction Reference *</Label>
                       <Input
                         placeholder="e.g. REF123456"
                         value={formData.transaction_reference ?? ""}
+                        maxLength={30}
                         onChange={(e) =>
                           setFormData({
                             ...formData,
-                            transaction_reference: e.target.value,
+                            transaction_reference: e.target.value.toUpperCase(),
                           })
                         }
-                        className={
-                          formErrors.transaction_reference
-                            ? "border-destructive"
-                            : ""
-                        }
+                        className={formErrors.transaction_reference ? "border-destructive" : ""}
                       />
                       {formErrors.transaction_reference && (
-                        <p className="text-xs text-destructive">
-                          {formErrors.transaction_reference}
-                        </p>
+                        <p className="text-xs text-destructive">{formErrors.transaction_reference}</p>
                       )}
                     </div>
                   </div>
@@ -998,22 +1047,19 @@ function BookSessionPage() {
                     to the mentor's account and enter your transfer details.
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs">
-                      Your Wise / Payoneer Email *
-                    </Label>
+                    <Label className="text-xs">Your Wise / Payoneer Email *</Label>
                     <Input
                       type="email"
                       placeholder="your@email.com"
                       value={formData.email ?? ""}
+                      maxLength={100}
                       onChange={(e) =>
-                        setFormData({ ...formData, email: e.target.value })
+                        setFormData({ ...formData, email: e.target.value.toLowerCase() })
                       }
                       className={formErrors.email ? "border-destructive" : ""}
                     />
                     {formErrors.email && (
-                      <p className="text-xs text-destructive">
-                        {formErrors.email}
-                      </p>
+                      <p className="text-xs text-destructive">{formErrors.email}</p>
                     )}
                   </div>
                   <div className="space-y-1">
@@ -1021,17 +1067,17 @@ function BookSessionPage() {
                     <Input
                       placeholder="e.g. WISE-123456 or PAY-789012"
                       value={formData.reference ?? ""}
+                      maxLength={30}
                       onChange={(e) =>
-                        setFormData({ ...formData, reference: e.target.value })
+                        setFormData({
+                          ...formData,
+                          reference: e.target.value.toUpperCase(),
+                        })
                       }
-                      className={
-                        formErrors.reference ? "border-destructive" : ""
-                      }
+                      className={formErrors.reference ? "border-destructive" : ""}
                     />
                     {formErrors.reference && (
-                      <p className="text-xs text-destructive">
-                        {formErrors.reference}
-                      </p>
+                      <p className="text-xs text-destructive">{formErrors.reference}</p>
                     )}
                   </div>
                 </div>

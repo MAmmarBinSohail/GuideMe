@@ -93,9 +93,14 @@ function LoginPage() {
       toast.success("Welcome back!");
 
       // Step 4 - Redirect based on role
-      navigate({ 
-        to: profile.role === "mentor" ? "/dashboard/mentor" : "/dashboard/mentee" 
-      });
+
+      const DASHBOARD_ROUTES = {
+        mentor: '/dashboard/mentor',
+        mentee: '/dashboard/mentee',
+        admin: '/dashboard/admin'
+      };
+
+      navigate(DASHBOARD_ROUTES[profile.role]);
 
     } catch (err) {
       toast.error("Something went wrong. Please try again.");
