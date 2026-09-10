@@ -1,3 +1,4 @@
+import { formatBookingDatePKT, formatTimePKT } from "@/lib/dateUtils";
 import { createNotification } from "@/lib/notificationHelper";
 import { sendBookingCancellationEmail } from "@/lib/emailService";
 import { useEffect, useState, useRef } from "react";
@@ -228,6 +229,19 @@ function MenteeDashboard() {
 
   async function handleCancel(bookingId: string) {
     try {
+      // Get booking details first
+      const { data: booking } = await supabase
+        .from("bookings")
+        .select(`
+          *,
+          mentor_profiles (
+            profiles (full_name)
+          )
+        `)
+        .eq("id", bookingId)
+        .single();
+
+      // Update booking status
       const { error } = await supabase
         .from("bookings")
         .update({ status: "cancelled" })
@@ -238,22 +252,35 @@ function MenteeDashboard() {
         return;
       }
 
+      // Delete payment record if exists
+      await supabase
+        .from("payments")
+        .delete()
+        .eq("booking_id", bookingId)
+        .eq("payment_type", "session");
+
+      const mentorName = (booking?.mentor_profiles as any)
+        ?.profiles?.full_name ?? "your mentor";
+
+      // Create cancellation notification
       await createNotification({
-          user_id: user!.id,
-          type: "booking_cancelled",
-          title: "Booking Cancelled",
-          message: "Your booking has been cancelled successfully.",
-          related_booking_id: bookingId,
-        });
+        user_id: user!.id,
+        type: "booking_cancelled",
+        title: "Booking Cancelled",
+        message: `Your booking with ${mentorName} has been cancelled successfully. Your payment has been refunded.`,
+        related_booking_id: bookingId,
+      });
 
-        // Send cancellation email
-        if (user.email) {
-          const booking = bookings.find((b) => b.id === bookingId);
-          const mentorName = booking?.mentor_profiles?.profiles?.full_name ?? "your mentor";
-          const date = booking?.scheduled_at
-            ? new Date(booking.scheduled_at).toLocaleDateString()
-            : "";
-
+      // Send cancellation email
+      if (user?.email) {
+        const date = booking?.scheduled_at
+          ? new Date(booking.scheduled_at).toLocaleDateString("en-PK", {
+              timeZone: "Asia/Karachi",
+              weekday: "short",
+              month: "short",
+              day: "numeric"
+            })
+          : "";
         await sendBookingCancellationEmail(
           user.email,
           user.name ?? "there",
@@ -262,8 +289,10 @@ function MenteeDashboard() {
         );
       }
 
-      toast.success("Booking cancelled successfully.");
+      toast.success("Booking cancelled and payment refunded.");
       fetchBookings();
+      fetchPayments();
+      fetchReviewedBookings();
 
     } catch (err) {
       toast.error("Something went wrong.");
@@ -410,8 +439,8 @@ function MenteeDashboard() {
                       ?? "Unknown Mentor";
                     const scheduledDate = payment.bookings?.scheduled_at
                       ? new Date(payment.bookings.scheduled_at).toLocaleDateString(
-                          undefined,
-                          { weekday: "short", month: "short", day: "numeric", year: "numeric" }
+                          "en-PK",
+                          { weekday: "short", month: "short", day: "numeric", year: "numeric", timeZone: "Asia/Karachi" }
                         )
                       : "Unknown date";
 
@@ -495,7 +524,7 @@ function MenteeDashboard() {
 function BookingCard({
   booking,
   variant,
-  onCancel,
+  onCancel, 
   onLeaveReview,
   hasReviewed,
 }: {
@@ -520,17 +549,8 @@ function BookingCard({
     .toUpperCase()
     .slice(0, 2);
 
-  const scheduledDate = new Date(booking.scheduled_at);
-  const dateStr = scheduledDate.toLocaleDateString(undefined, {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-  const timeStr = scheduledDate.toLocaleTimeString(undefined, {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  const dateStr = formatBookingDatePKT(booking.scheduled_at);
+    const timeStr = formatTimePKT(booking.scheduled_at);
 
   return (
     <Card className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center">

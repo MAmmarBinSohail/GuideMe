@@ -17,6 +17,9 @@
   import { Route as SettingsRoute } from "./routes/settings";
   import { Route as AiAssistantRoute } from "./routes/ai-assistant";
   import { Route as VideosRoute } from "./routes/videos";
+  import { Route as PrivacyRoute } from "./routes/privacy-policy";
+  import { Route as TermsRoute } from "./routes/terms-of-service";
+  import { Route as UnsubscribeRoute } from "./routes/unsubscribe";
 
   export default function App() {
     return (
@@ -39,6 +42,9 @@
           <Route path="/ai-assistant" element={<AiAssistantRoute.component />} />
           <Route path="*" element={<NotFoundComponent />} />
           <Route path="/videos" element={<VideosRoute.component />} />
+          <Route path="/privacy-policy" element={<PrivacyRoute.component />} />
+          <Route path="/terms-of-service" element={<TermsRoute.component />} /> 
+          <Route path="/unsubscribe" element={<UnsubscribeRoute.component />} />
         </Routes>
         <ChatbotWidget />
       </RootLayout>

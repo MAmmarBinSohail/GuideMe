@@ -1,3 +1,4 @@
+import { formatBookingDatePKT, formatTimePKT } from "@/lib/dateUtils";
 import { createNotification } from "@/lib/notificationHelper";
 import { sendSessionCompleteEmail, sendOverageChargeEmail } from "@/lib/emailService";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -400,17 +401,8 @@ function MentorBookingCard({
     .toUpperCase()
     .slice(0, 2);
 
-  const scheduledDate = new Date(booking.scheduled_at);
-  const dateStr = scheduledDate.toLocaleDateString(undefined, {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-  const timeStr = scheduledDate.toLocaleTimeString(undefined, {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  const dateStr = formatBookingDatePKT(booking.scheduled_at);
+    const timeStr = formatTimePKT(booking.scheduled_at);
 
   const hasPassed = new Date() > scheduledDate;
 
@@ -1878,9 +1870,9 @@ function AvailabilityCard() {
         <h2 className="text-lg font-semibold">Weekly availability</h2>
       </div>
       <p className="mb-6 text-sm text-muted-foreground">
-        Set your recurring weekly schedule. This repeats every week
-        until you change it. A day with no time blocks is fully disabled
-        for booking.
+        Set your recurring weekly schedule in <strong>Pakistan Standard Time (PKT)</strong>.
+        This repeats every week until you change it.
+        A day with no time blocks is fully disabled for booking.
       </p>
 
       <div className="space-y-4">
@@ -2440,11 +2432,12 @@ function ReviewsCard() {
                     <p className="text-sm font-semibold">{menteeName}</p>
                     <p className="text-xs text-muted-foreground">
                       {new Date(review.created_at).toLocaleDateString(
-                        undefined,
+                        "en-PK",
                         {
                           month: "short",
                           day: "numeric",
                           year: "numeric",
+                          timeZone: "Asia/Karachi",
                         }
                       )}
                     </p>

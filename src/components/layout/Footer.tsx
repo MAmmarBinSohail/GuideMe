@@ -1,3 +1,6 @@
+import { useState } from "react";
+import { supabase } from "@/supabaseClient";
+import { toast } from "sonner";
 import { Link } from "@/lib/router-compat";
 import {
   Sparkles,
@@ -23,14 +26,14 @@ const SUPPORT_LINKS = [
   { label: "Help Center", href: "/ai-assistant" },
   { label: "Features", href: "#features" },
   { label: "Pricing", href: "/mentors" },
-  { label: "Terms of Service", href: "#" },
-  { label: "Privacy Policy", href: "#" }
+  { label: "Terms of Service", href: "/terms-of-service" },
+  { label: "Privacy Policy", href: "/privacy-policy" }
 ];
 
 const SOCIALS = [
-  { icon: FaXTwitter, label: "Twitter", href: "https://x.com/ammar90340" },
+  { icon: FaXTwitter, label: "Twitter", href: "https://x.com/GuidMe_official" },
   { icon: Linkedin, label: "LinkedIn", href: "https://www.linkedin.com/in/ammarsohail56/" },
-  { icon: Instagram, label: "Instagram", href: "#" },
+  { icon: Instagram, label: "Instagram", href: "https://www.instagram.com/guideme_llc?igsi=MWp6b3Bzd3I3N3R3cQ==" },
   { icon: Github, label: "GitHub", href: "https://github.com/MAmmarBinSohail/GuideMe" },
 ];
 
@@ -56,6 +59,86 @@ export function MinimalFooter() {
 
 export function Footer() {
   const { isAuthenticated } = useAuth();
+  const [subEmail, setSubEmail] = useState("");
+  const [subscribing, setSubscribing] = useState(false);
+
+async function handleSubscribe() {
+    if (!subEmail.trim()) {
+      toast.error("Please enter your email address.");
+      return;
+    }
+    if (!/\S+@\S+\.\S+/.test(subEmail)) {
+      toast.error("Please enter a valid email address.");
+      return;
+    }
+
+    setSubscribing(true);
+    try {
+      const { error } = await supabase
+        .from("subscribers")
+        .insert({ email: subEmail.trim().toLowerCase() });
+
+      if (error) {
+        if (error.code === "23505") {
+          toast.error("This email is already subscribed.");
+        } else {
+          toast.error("Failed to subscribe. Please try again.");
+        }
+        return;
+      }
+
+      // Send welcome email via Edge Function
+      await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-email`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+            "apikey": import.meta.env.VITE_SUPABASE_ANON_KEY,
+          },
+          body: JSON.stringify({
+            to: subEmail.trim(),
+            subject: "Welcome to GuideMe Newsletter!",
+            html: `
+              <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+                <div style="background: linear-gradient(135deg, #4F46E5, #7C3AED); padding: 32px; border-radius: 12px 12px 0 0;">
+                  <h1 style="color: white; margin: 0; font-size: 24px;">GuideMe</h1>
+                  <p style="color: rgba(255,255,255,0.8); margin: 8px 0 0;">Your mentorship journey starts here</p>
+                </div>
+                <div style="background: #ffffff; padding: 32px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 12px 12px;">
+                  <h2 style="color: #1f2937;">Welcome aboard! 🎉</h2>
+                  <p style="color: #4b5563;">Thank you for subscribing to GuideMe updates. You will receive:</p>
+                  <ul style="color: #4b5563;">
+                    <li>New mentor announcements</li>
+                    <li>Mentorship tips and career insights</li>
+                    <li>Platform updates and new features</li>
+                    <li>Exclusive offers for subscribers</li>
+                  </ul>
+                  <a href="https://guideme-theta.vercel.app/mentors" 
+                     style="display: inline-block; background: linear-gradient(135deg, #4F46E5, #7C3AED); color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; margin-top: 16px;">
+                    Browse Mentors
+                  </a>
+                  <a href="https://guideme-theta.vercel.app/unsubscribe?email=${subEmail.trim()}" 
+                    style="color: #9ca3af; font-size: 11px;">
+                    Unsubscribe
+                  </a>
+                </div>
+              </div>
+            `
+          }),
+        }
+      );
+
+      toast.success("Successfully subscribed! Check your inbox for a welcome email.");
+      setSubEmail("");
+
+    } catch (err) {
+      toast.error("Something went wrong. Please try again.");
+    } finally {
+      setSubscribing(false);
+    }
+  }
 
   const quickLinks = [
     { to: "/", label: "Home" },
@@ -162,14 +245,17 @@ export function Footer() {
               <Input
                 type="email"
                 placeholder="your@email.com"
-                className="h-10 rounded-lg text-sm"
+                value={subEmail}
+                onChange={(e) => setSubEmail(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSubscribe()}
+                className="bg-background"
               />
               <Button
-                type="submit"
-                size="sm"
-                className="rounded-lg bg-gradient-primary text-primary-foreground hover:opacity-90 shrink-0"
+                disabled={subscribing}
+                onClick={handleSubscribe}
+                className="bg-gradient-primary text-primary-foreground hover:opacity-90"
               >
-                Subscribe
+                {subscribing ? "..." : "Subscribe"}
               </Button>
             </form>
             <div className="space-y-2">
