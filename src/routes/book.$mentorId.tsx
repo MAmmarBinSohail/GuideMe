@@ -284,9 +284,13 @@ function BookSessionPage() {
     setSubmitting(true);
 
     try {
-      const dateStr = selectedDate.toISOString().split("T")[0];
-      // selectedTime is HH:MM format from the DB, just use it directly
-      const scheduledAt = `${dateStr}T${selectedTime.slice(0, 5)}:00`;
+      // const dateStr = selectedDate.toISOString().split("T")[0];
+      // const scheduledAt = `${dateStr}T${selectedTime.slice(0, 5)}:00`;
+
+      const dateStr = selectedDate.toLocaleDateString("en-CA");
+      // Append PKT offset so DB converts to correct UTC
+      const scheduledAt = `${dateStr}T${selectedTime.slice(0, 5)}:00+05:00`;
+
       console.log("scheduledAt being sent:", scheduledAt);
 
       const { data: overlapCheck } = await supabase.rpc(
@@ -325,6 +329,28 @@ function BookSessionPage() {
         toast.error("Booking failed. Please try again.");
         setSubmitting(false);
         return;
+      }
+
+      // Schedule reminder 30 minutes before session
+      const newBookingId = newBooking.id;
+
+      const reminderTime = new Date(
+        new Date(scheduledAt).getTime() - 30 * 60 * 1000
+      );
+
+      if (reminderTime > new Date()) {
+        fetch(`https://qstash.upstash.io/v2/publish/https://usxrskkuxztbrocatpfz.supabase.co/functions/v1/session-reminders`, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${import.meta.env.VITE_QSTASH_TOKEN}`,
+            "Content-Type": "application/json",
+            "Upstash-Not-Before": Math.floor(reminderTime.getTime() / 1000).toString(),
+          },
+          body: JSON.stringify({
+            booking_id: newBookingId,
+            mentee_email: user?.email,
+          }),
+        }).catch(err => console.error("QStash error:", err));
       }
 
       // If paid, create the payment record
