@@ -1,12 +1,7 @@
 import { useNavigate } from '@/lib/router-compat';
-
-import { useState, useEffect, useRef } from 'react';
-import { supabase } from '../supabaseClient';
-import {
-  getOrCreateSession,
-  loadMessages,
-  sendChat
-} from './chatbotService';
+import { useState, useEffect, useRef } from "react";
+import { supabase } from "../supabaseClient";
+import { getOrCreateSession, loadMessages, sendChat } from "./chatbotService";
 
 const WELCOME_MESSAGE = {
   sender: 'bot',
