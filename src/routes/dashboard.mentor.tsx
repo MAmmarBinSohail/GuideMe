@@ -53,10 +53,54 @@ function MentorDashboard() {
   const [loading, setLoading] = useState(true);
   const [rescheduling, setRescheduling] = useState<any | null>(null);
   const [overageBooking, setOverageBooking] = useState<any | null>(null);
+  const [countdown, setCountdown] = useState<string | null>(null);
+  const [nextBooking, setNextBooking] = useState<any | null>(null);
 
   useEffect(() => {
     if (user) fetchBookings();
   }, [user]);
+
+  useEffect(() => {
+    const now = new Date();
+    const upcoming = bookings
+      .filter(b => b.status === 'confirmed' && new Date(b.scheduled_at) > now)
+      .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime());
+
+    if (upcoming.length === 0) {
+      setNextBooking(null);
+      setCountdown(null);
+      return;
+    }
+
+    setNextBooking(upcoming[0]);
+
+    const interval = setInterval(() => {
+      const now = new Date();
+      const sessionTime = new Date(upcoming[0].scheduled_at);
+      const diff = sessionTime.getTime() - now.getTime();
+
+      if (diff <= 0) {
+        setCountdown("Session is starting now!");
+        clearInterval(interval);
+        return;
+      }
+
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+      if (days > 0) {
+        setCountdown(`${days}d ${hours}h ${minutes}m`);
+      } else if (hours > 0) {
+        setCountdown(`${hours}h ${minutes}m ${seconds}s`);
+      } else {
+        setCountdown(`${minutes}m ${seconds}s`);
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [bookings]);
 
   async function fetchBookings() {
     setLoading(true);
@@ -154,6 +198,7 @@ function MentorDashboard() {
           .single();
 
         if (menteeProfile?.email) {
+          console.log("Sending session complete email to:", menteeProfile?.email);
           await sendSessionCompleteEmail(
             menteeProfile.email,
             menteeProfile.email.split("@")[0],
@@ -211,6 +256,7 @@ function MentorDashboard() {
       .single();
 
     if (menteeProfile?.email) {
+      console.log("Sending overage charge email to:", menteeProfile.email);
       await sendOverageChargeEmail(
         menteeProfile.email,
         menteeProfile.full_name ?? "there",
@@ -247,6 +293,45 @@ function MentorDashboard() {
       <div className="container mx-auto px-4 py-10">
         <div className="mb-8">
           <h1 className="text-3xl font-bold tracking-tight">Mentor Dashboard</h1>
+          {/* Countdown Banner */}
+          {nextBooking && countdown && (
+            <div className={`mt-4 rounded-xl border p-4 flex items-center gap-4 ${
+              countdown === "Session is starting now!"
+                ? "bg-green-500/10 border-green-500/30"
+                : countdown.includes("m") && !countdown.includes("h") && !countdown.includes("d")
+                ? "bg-amber-500/10 border-amber-500/30"
+                : "bg-primary/5 border-primary/20"
+            }`}>
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10">
+                <Clock className="h-5 w-5 text-primary" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold">
+                  {countdown === "Session is starting now!"
+                    ? "🟢 Your session is starting now!"
+                    : `⏱ Next session in ${countdown}`}
+                </p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {nextBooking.profiles?.full_name ?? "Mentee"} —{" "}
+                  {formatBookingDatePKT(nextBooking.scheduled_at)} at{" "}
+                  {formatTimePKT(nextBooking.scheduled_at)}
+                </p>
+              </div>
+              {nextBooking.meetings?.meeting_link && (
+                <a
+                  href={nextBooking.meetings.meeting_link}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="shrink-0"
+                >
+                  <Button size="sm" className="bg-gradient-primary text-primary-foreground">
+                    Join Now
+                  </Button>
+                </a>
+              )}
+            </div>
+          )}
+          <br />
           <p className="mt-1 text-sm text-muted-foreground">
             Manage your schedule, requests, and earnings.
           </p>
@@ -401,8 +486,9 @@ function MentorBookingCard({
     .toUpperCase()
     .slice(0, 2);
 
+  const scheduledDate = new Date(booking.scheduled_at); 
   const dateStr = formatBookingDatePKT(booking.scheduled_at);
-    const timeStr = formatTimePKT(booking.scheduled_at);
+  const timeStr = formatTimePKT(booking.scheduled_at);
 
   const hasPassed = new Date() > scheduledDate;
 

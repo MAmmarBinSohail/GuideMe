@@ -77,7 +77,8 @@ function MenteeDashboard() {
   const [reviewBooking, setReviewBooking] = useState<any | null>(null);
   const [reviewedBookingIds, setReviewedBookingIds] = useState<Set<string>>(new Set());
   const [payments, setPayments] = useState<Payment[]>([]);
-  
+  const [countdown, setCountdown] = useState<string | null>(null);
+  const [nextBooking, setNextBooking] = useState<any | null>(null);  
 
   useEffect(() => {
     if (user) {
@@ -86,6 +87,49 @@ function MenteeDashboard() {
       fetchReviewedBookings();
     }
   }, [user]);
+
+  useEffect(() => {
+    // Find the next upcoming confirmed booking
+    const now = new Date();
+    const upcoming = bookings
+      .filter(b => b.status === 'confirmed' && new Date(b.scheduled_at) > now)
+      .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime());
+
+    if (upcoming.length === 0) {
+      setNextBooking(null);
+      setCountdown(null);
+      return;
+    }
+
+    setNextBooking(upcoming[0]);
+
+    const interval = setInterval(() => {
+      const now = new Date();
+      const sessionTime = new Date(upcoming[0].scheduled_at);
+      const diff = sessionTime.getTime() - now.getTime();
+
+      if (diff <= 0) {
+        setCountdown("Session is starting now!");
+        clearInterval(interval);
+        return;
+      }
+
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+      if (days > 0) {
+        setCountdown(`${days}d ${hours}h ${minutes}m`);
+      } else if (hours > 0) {
+        setCountdown(`${hours}h ${minutes}m ${seconds}s`);
+      } else {
+        setCountdown(`${minutes}m ${seconds}s`);
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [bookings]); 
 
   async function fetchBookings() {
     setLoading(true);
@@ -328,6 +372,49 @@ function MenteeDashboard() {
           <p className="mt-1 text-sm text-muted-foreground">
             Manage your upcoming and past mentorship sessions.
           </p>
+
+          {/* Countdown Banner */}
+          {nextBooking && countdown && (
+            <div className={`mt-4 rounded-xl border p-4 flex items-center gap-4 ${
+              countdown === "Session is starting now!"
+                ? "bg-green-500/10 border-green-500/30"
+                : countdown.includes("m") && !countdown.includes("h") && !countdown.includes("d")
+                ? "bg-amber-500/10 border-amber-500/30"
+                : "bg-primary/5 border-primary/20"
+            }`}>
+              <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${
+                countdown === "Session is starting now!"
+                  ? "bg-green-500/20"
+                  : "bg-primary/10"
+              }`}>
+                <Clock className="h-5 w-5 text-primary" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold">
+                  {countdown === "Session is starting now!"
+                    ? "🟢 Your session is starting now!"
+                    : `⏱ Next session in ${countdown}`}
+                </p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {nextBooking.mentor_profiles?.profiles?.full_name ?? "Mentor"} —{" "}
+                  {formatBookingDatePKT(nextBooking.scheduled_at)} at{" "}
+                  {formatTimePKT(nextBooking.scheduled_at)}
+                </p>
+              </div>
+              {nextBooking.meetings?.meeting_link && (
+                <a
+                  href={nextBooking.meetings.meeting_link}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="shrink-0"
+                >
+                  <Button size="sm" className="bg-gradient-primary text-primary-foreground">
+                    Join Now
+                  </Button>
+                </a>
+              )}
+            </div>
+          )}
         </div>
 
         {loading ? (

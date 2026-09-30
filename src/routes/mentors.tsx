@@ -53,6 +53,7 @@ function MentorsPage() {
   const [query, setQuery] = useState("");
   const [maxPrice, setMaxPrice] = useState<number[]>([5000]);
   const [minRating, setMinRating] = useState(0);
+  // const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [selectedCats, setSelectedCats] = useState<string[]>(
     initialCategory ? [initialCategory] : [],
   );
@@ -109,6 +110,7 @@ function MentorsPage() {
 
       if (price > maxPrice[0]) return false;
       if (rating < minRating) return false;
+      // if (verifiedOnly && !m.profiles?.is_verified) return false;
       if (selectedCats.length > 0 && !selectedCats.includes(m.category ?? "")) return false;
 
       if (query.trim()) {
@@ -187,6 +189,7 @@ function MentorsPage() {
             />
           </div>
 
+          {/* Rating Filter */}
           <Card className="p-5">
             <h3 className="mb-3 text-sm font-semibold">Rating</h3>
             <div className="flex flex-wrap gap-2">
@@ -204,6 +207,22 @@ function MentorsPage() {
                 </button>
               ))}
             </div>
+
+            {/* Verified Filter */}
+            {/* <div className="mt-4">
+              <h3 className="mb-3 text-sm font-semibold">Verification</h3>
+              <button
+                onClick={() => setVerifiedOnly(!verifiedOnly)}
+                className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium transition w-full ${
+                  verifiedOnly
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-background text-muted-foreground hover:bg-muted"
+                }`}
+              >
+                <BadgeCheck className="h-3.5 w-3.5" />
+                Verified mentors only
+              </button>
+            </div> */}
           </Card>
 
           <Card className="p-5">

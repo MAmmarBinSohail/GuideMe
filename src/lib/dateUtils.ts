@@ -11,7 +11,7 @@ export function formatDatePKT(
 }
 
 export function formatTimePKT(dateString: string): string {
-  return new Date(dateString).toLocaleTimeString("en-PK", {
+  return new Date(dateString).toLocaleTimeString("en-US", {
     timeZone: PKT_TIMEZONE,
     hour: "2-digit",
     minute: "2-digit",

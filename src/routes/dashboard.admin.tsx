@@ -230,6 +230,26 @@ function AdminDashboardContent() {
     await loadMentors();
   }
 
+  async function makeAdmin(userId: string, userName: string) {
+    const confirmed = window.confirm(
+      `Are you sure you want to make ${userName} an admin? This cannot be easily undone.`
+    );
+    if (!confirmed) return;
+
+    const { error } = await supabase
+      .from("profiles")
+      .update({ role: "admin" })
+      .eq("id", userId);
+
+    if (error) {
+      toast.error("Failed to update role.");
+      return;
+    }
+
+    toast.success(`${userName} is now an admin.`);
+    await loadUsers();
+  }
+
   async function deleteReview(reviewId: string, mentorId: string, mentorUserId: string) {
     const { error } = await supabase
       .from("reviews")
@@ -489,10 +509,7 @@ function AdminDashboardContent() {
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-sm">{u.full_name ?? "Unknown"}</p>
                     <div className="flex items-center gap-2 mt-0.5">
-                      <Badge
-                        variant="secondary"
-                        className="text-[10px] capitalize"
-                      >
+                      <Badge variant="secondary" className="text-[10px] capitalize">
                         {u.role}
                       </Badge>
                       {u.is_verified && (
@@ -503,6 +520,17 @@ function AdminDashboardContent() {
                       </span>
                     </div>
                   </div>
+                  {u.role !== "admin" && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="shrink-0 text-xs"
+                      onClick={() => makeAdmin(u.id, u.full_name ?? "User")}
+                    >
+                      <ShieldCheck className="h-3 w-3 mr-1" />
+                      Make Admin
+                    </Button>
+                  )}
                 </Card>
               );
             })}
