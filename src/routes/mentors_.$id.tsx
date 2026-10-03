@@ -13,7 +13,8 @@ import {
   Briefcase,
   Award,
   ExternalLink,
-  PlayCircle
+  PlayCircle,
+  MessageSquare
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -213,6 +214,7 @@ function MentorProfilePage() {
   const category = getCategory(mentor.category ?? "");
   const CatIcon = category?.icon;
   const isMentor = user?.role === "mentor";
+  const isAdmin = user?.role === "admin";
 
   const initials = mentor.profiles.full_name
     .split(" ")
@@ -570,8 +572,8 @@ function MentorProfilePage() {
             <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
               Initial session
             </p>
-            {isMentor ? (
-              // Mentor viewing — always show static configured price
+            {isMentor || isAdmin ? (
+              // Mentor or admin viewing — always show static configured price
               mentor.is_free_first_session ? (
                 <p className="mt-1 text-3xl font-bold text-green-600">
                   Free <span className="text-sm font-normal text-muted-foreground">(for new mentees)</span>
@@ -585,12 +587,12 @@ function MentorProfilePage() {
                 </p>
               )
             ) : isFreeEligible ? (
-              // Mentee viewing, eligible for free
+              // Mentee or admin viewing, eligible for free
               <p className="mt-1 text-3xl font-bold text-green-600">
                 Free
               </p>
             ) : (
-              // Mentee viewing, not eligible (already used free session)
+              // Mentee or admin viewing, not eligible (already used free session)
               <p className="mt-1 text-3xl font-bold text-gradient-primary">
                 PKR {mentor.initial_session_price}
                 <span className="ml-1 text-sm font-normal text-muted-foreground">
@@ -610,13 +612,13 @@ function MentorProfilePage() {
             )}
           </div>
 
-          {isMentor ? (
+          {isMentor || isAdmin ? (
             <div className="mt-5 rounded-lg border border-dashed bg-muted/30 p-4 text-center">
               <p className="text-sm font-medium">
-                Mentors cannot book sessions
+                Only Mentees can book sessions
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
-                You are viewing this profile as a mentor.
+                You are not viewing this profile as a mentee.
               </p>
             </div>
           ) : (

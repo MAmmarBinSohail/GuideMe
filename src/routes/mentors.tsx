@@ -1,7 +1,9 @@
+import { adminService } from "@/lib/adminService.ts";
 import { createFileRoute, Link } from "@/lib/router-compat";
 import { useMemo, useState, useEffect } from "react";
 import { Search, Star, Users, BadgeCheck, Loader2 } from "lucide-react";
 import { z } from "zod";
+import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
@@ -47,6 +49,7 @@ function MentorsPage() {
   const { category: initialCategory } = Route.useSearch();
   const { user } = useAuth();
   const isMentor = user?.role === "mentor";
+  const isAdmin = user?.role === "admin";
 
   const [mentors, setMentors] = useState<MentorData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -74,8 +77,10 @@ function MentorsPage() {
       const { data, error } = await supabase
         .from("mentor_profiles")
         .select(`
+          id,
           *,
           profiles (
+            id,
             full_name,
             profile_picture_url,
             is_verified
@@ -95,6 +100,22 @@ function MentorsPage() {
       console.error("Failed to fetch mentors:", err);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function toggleVerify(mentorUserId: string, currentStatus: boolean) {
+    try {
+      if (currentStatus) {
+        await adminService.unverifyMentor(mentorUserId);
+        toast.success("Mentor unverified.");
+      } else {
+        await adminService.verifyMentor(mentorUserId);
+        toast.success("Mentor verified.");
+      }
+      fetchMentors();
+    } catch (err) {
+      toast.error("Failed to update verification.");
+      console.error(err);
     }
   }
 
@@ -232,12 +253,7 @@ function MentorsPage() {
                 {maxPrice[0] === 5000 ? "Any" : `PKR ${maxPrice[0]}`}
               </span>
             </div>
-            <Slider
-              value={maxPrice}
-              onValueChange={setMaxPrice}
-              max={5000}
-              step={50}
-            />
+            <Slider value={maxPrice} onValueChange={setMaxPrice} max={5000} step={50} />
           </Card>
         </aside>
 
@@ -402,6 +418,7 @@ function MentorsPage() {
                             )}
                           </p>
                           <div className="flex gap-2">
+                            {/* View profile button is always shown */}
                             <Button size="sm" variant="outline" asChild>
                               <Link
                                 to="/mentors/$id"
@@ -410,16 +427,39 @@ function MentorsPage() {
                                 View profile
                               </Link>
                             </Button>
-                            {!isMentor && (
+
+                            {/* Admins can verify/unverify mentors */}
+                            {user?.role === "admin" && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className={`text-xs ${
+                                  m.profiles?.is_verified
+                                    ? "text-destructive border-destructive"
+                                    : "text-primary border-primary"
+                                }`}
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  const profileId = m.profiles?.id;
+                                  if (!profileId) {
+                                    toast.error("Could not find mentor profile ID.");
+                                    return;
+                                  }
+                                  toggleVerify(profileId, m.profiles?.is_verified ?? false);
+                                }}
+                              >
+                                {m.profiles?.is_verified ? "Unverify" : "Verify"}
+                              </Button>
+                            )}
+
+                            {/* Book button is only shown to mentees, not mentors or admins */}
+                            {!isMentor && !isAdmin && (
                               <Button
                                 size="sm"
                                 asChild
                                 className="bg-gradient-primary text-primary-foreground hover:opacity-90"
                               >
-                                <Link
-                                  to="/book/$mentorId"
-                                  params={{ mentorId: m.id }}
-                                >
+                                <Link to="/book/$mentorId" params={{ mentorId: m.id }} >
                                   Book
                                 </Link>
                               </Button>

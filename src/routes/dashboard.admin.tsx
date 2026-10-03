@@ -1,4 +1,5 @@
 import { formatBookingDatePKT, formatTimePKT } from "@/lib/dateUtils";
+import { adminService } from "@/lib/adminService.ts";
 import { createFileRoute, Link } from "@/lib/router-compat";
 import { useEffect, useState } from "react";
 import {
@@ -57,7 +58,6 @@ function AdminDashboardContent() {
   });
 
   // Data
-  const [mentors, setMentors] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
   const [reviews, setReviews] = useState<any[]>([]);
   const [subscribers, setSubscribers] = useState<any[]>([]);
@@ -68,6 +68,7 @@ function AdminDashboardContent() {
   const [newsletterSubject, setNewsletterSubject] = useState("");
   const [newsletterBody, setNewsletterBody] = useState("");
   const [sendingNewsletter, setSendingNewsletter] = useState(false);
+  const [roleDropdown, setRoleDropdown] = useState<string | null>(null);
 
   useEffect(() => {
     loadAll();
@@ -78,7 +79,6 @@ function AdminDashboardContent() {
     try {
       await Promise.all([
         loadStats(),
-        loadMentors(),
         loadUsers(),
         loadReviews(),
         loadSubscribers(),
@@ -105,9 +105,15 @@ function AdminDashboardContent() {
       supabase.from("profiles").select("*", { count: "exact", head: true }).eq("role", "mentee"),
       supabase.from("bookings").select("*", { count: "exact", head: true }),
       supabase.from("reviews").select("*", { count: "exact", head: true }),
-      supabase.from("payments").select("amount, platform_commission, mentor_payout").eq("payment_status", "completed"),
+      supabase
+        .from("payments")
+        .select("amount, platform_commission, mentor_payout")
+        .eq("payment_status", "completed"),
       supabase.from("reviews").select("rating"),
-      supabase.from("subscribers").select("*", { count: "exact", head: true }).eq("is_active", true),
+      supabase
+        .from("subscribers")
+        .select("*", { count: "exact", head: true })
+        .eq("is_active", true),
     ]);
 
     console.log("Payments data:", paymentsData);
@@ -137,26 +143,6 @@ function AdminDashboardContent() {
       averageRating: avgRating,
       totalSubscribers: totalSubscribers ?? 0,
     });
-  }
-
-  async function loadMentors() {
-    const { data } = await supabase
-      .from("mentor_profiles")
-      .select(`
-        id,
-        category,
-        average_rating,
-        is_available,
-        is_hibernating,
-        profiles (
-          id,
-          full_name,
-          is_verified,
-          profile_picture_url
-        )
-      `)
-      .order("average_rating", { ascending: false });
-    setMentors(data || []);
   }
 
   async function loadUsers() {
@@ -213,41 +199,37 @@ function AdminDashboardContent() {
     setBookings(data || []);
   }
 
-  async function toggleVerification(mentorProfileId: string, userId: string, currentStatus: boolean) {
-    const { error } = await supabase
-      .from("profiles")
-      .update({ is_verified: !currentStatus })
-      .eq("id", userId);
-
-    if (error) {
-      toast.error("Failed to update verification.");
-      return;
-    }
-
-    toast.success(
-      currentStatus ? "Mentor unverified." : "Mentor verified successfully."
-    );
-    await loadMentors();
-  }
-
-  async function makeAdmin(userId: string, userName: string) {
+  async function changeRole(userId: string, userName: string, newRole: string) {
     const confirmed = window.confirm(
-      `Are you sure you want to make ${userName} an admin? This cannot be easily undone.`
+      `Change ${userName}'s role to ${newRole}? ${newRole === "admin" ? "All their bookings will be cancelled." : ""}`
     );
     if (!confirmed) return;
 
-    const { error } = await supabase
-      .from("profiles")
-      .update({ role: "admin" })
-      .eq("id", userId);
-
-    if (error) {
-      toast.error("Failed to update role.");
-      return;
+    try {
+      await adminService.changeRole(userId, newRole);
+      toast.success(`${userName} is now a ${newRole}.`);
+      setRoleDropdown(null);
+      await loadUsers();
+    } catch (err) {
+      toast.error("Failed to change role.");
+      console.error(err);
     }
+  }
 
-    toast.success(`${userName} is now an admin.`);
-    await loadUsers();
+  async function toggleBlock(userId: string, userName: string, isBlocked: boolean) {
+    try {
+      if (isBlocked) {
+        await adminService.unblockUser(userId);
+        toast.success(`${userName} has been unblocked.`);
+      } else {
+        await adminService.blockUser(userId);
+        toast.success(`${userName} has been blocked.`);
+      }
+      await loadUsers();
+    } catch (err) {
+      toast.error("Failed to update block status.");
+      console.error(err);
+    }
   }
 
   async function deleteReview(reviewId: string, mentorId: string, mentorUserId: string) {
@@ -413,9 +395,6 @@ function AdminDashboardContent() {
       {/* Tabs */}
       <Tabs defaultValue="mentors">
         <TabsList className="flex-wrap h-auto mb-6">
-          <TabsTrigger value="mentors">
-            Mentors ({mentors.length})
-          </TabsTrigger>
           <TabsTrigger value="users">
             Users ({users.length})
           </TabsTrigger>
@@ -430,66 +409,6 @@ function AdminDashboardContent() {
           </TabsTrigger>
         </TabsList>
 
-        {/* Mentors Tab */}
-        <TabsContent value="mentors">
-          <div className="space-y-3">
-            {mentors.map((m) => {
-              const name = m.profiles?.full_name ?? "Unknown";
-              const isVerified = m.profiles?.is_verified ?? false;
-              const initials = name.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2);
-
-              return (
-                <Card key={m.id} className="p-4 flex items-center gap-4">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-primary text-sm font-bold text-primary-foreground">
-                    {initials}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="font-semibold text-sm">{name}</p>
-                      {isVerified && (
-                        <BadgeCheck className="h-4 w-4 text-primary" />
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      <Badge variant="secondary" className="text-[10px] capitalize">
-                        {m.category}
-                      </Badge>
-                      {m.average_rating > 0 && (
-                        <span className="text-xs text-muted-foreground flex items-center gap-0.5">
-                          <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-                          {Number(m.average_rating).toFixed(1)}
-                        </span>
-                      )}
-                      {m.is_hibernating && (
-                        <Badge variant="outline" className="text-[10px]">
-                          Hibernating
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      variant={isVerified ? "outline" : "default"}
-                      className={isVerified ? "text-destructive border-destructive hover:bg-destructive/10" : "bg-gradient-primary text-primary-foreground"}
-                      onClick={() => toggleVerification(m.id, m.profiles?.id, isVerified)}
-                    >
-                      {isVerified ? (
-                        <><XCircle className="h-3.5 w-3.5 mr-1" /> Unverify</>
-                      ) : (
-                        <><CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Verify</>
-                      )}
-                    </Button>
-                    <Button size="sm" variant="outline" asChild>
-                      <Link to={`/mentors/${m.id}`}>View</Link>
-                    </Button>
-                  </div>
-                </Card>
-              );
-            })}
-          </div>
-        </TabsContent>
-
         {/* Users Tab */}
         <TabsContent value="users">
           <div className="space-y-3">
@@ -502,7 +421,7 @@ function AdminDashboardContent() {
                 .slice(0, 2);
 
               return (
-                <Card key={u.id} className="p-4 flex items-center gap-4">
+                <Card key={u.id} className="p-4 flex items-center gap-3">
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-bold">
                     {initials}
                   </div>
@@ -515,27 +434,57 @@ function AdminDashboardContent() {
                       {u.is_verified && (
                         <BadgeCheck className="h-3.5 w-3.5 text-primary" />
                       )}
+                      {u.is_blocked && (
+                        <Badge variant="destructive" className="text-[10px]">Blocked</Badge>
+                      )}
                       <span className="text-xs text-muted-foreground">
                         Joined {new Date(u.created_at).toLocaleDateString()}
                       </span>
                     </div>
                   </div>
-                  {u.role !== "admin" && (
+                  <div className="flex items-center gap-2 shrink-0">
+                    {/* Change Role Dropdown */}
+                    <div className="relative">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-xs"
+                        onClick={() => setRoleDropdown(roleDropdown === u.id ? null : u.id)}
+                      >
+                        Change Role ▾
+                      </Button>
+                      {roleDropdown === u.id && (
+                        <div className="absolute right-0 top-8 z-10 w-36 rounded-lg border bg-card shadow-lg">
+                          {["mentee", "mentor", "admin"].map((role) => (
+                            <button
+                              key={role}
+                              onClick={() => changeRole(u.id, u.full_name ?? "User", role)}
+                              className={`w-full px-3 py-2 text-left text-xs capitalize hover:bg-muted transition ${
+                                u.role === role ? "font-bold text-primary" : ""
+                              }`}
+                            >
+                              {u.role === role ? `✓ ${role}` : role}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    {/* Block/Unblock */}
                     <Button
                       size="sm"
                       variant="outline"
-                      className="shrink-0 text-xs"
-                      onClick={() => makeAdmin(u.id, u.full_name ?? "User")}
+                      className={`text-xs ${u.is_blocked ? "text-green-600 border-green-600 hover:bg-green-50" : "text-destructive border-destructive hover:bg-destructive/10"}`}
+                      onClick={() => toggleBlock(u.id, u.full_name ?? "User", u.is_blocked ?? false)}
                     >
-                      <ShieldCheck className="h-3 w-3 mr-1" />
-                      Make Admin
+                      {u.is_blocked ? "Unblock" : "Block"}
                     </Button>
-                  )}
+                  </div>
                 </Card>
               );
             })}
           </div>
         </TabsContent>
+
 
         {/* Reviews Tab */}
         <TabsContent value="reviews">
@@ -612,7 +561,7 @@ function AdminDashboardContent() {
                       b.status === "completed" ? "secondary" :
                       "destructive"
                     }
-                    className="capitalize shrink-0"
+                    className="capitalize shrink-0" 
                   >
                     {b.status}
                   </Badge>

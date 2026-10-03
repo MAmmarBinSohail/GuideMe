@@ -31,7 +31,7 @@ export function Navbar() {
     { to: "/", label: "Home" },
     { to: "/mentors", label: "Mentors" },
     { to: "/videos", label: "Videos" },
-    { to: "/ai-assistant", label: "Mr.Guy-de" },
+    ...(user?.role !== "admin" ? [{ to: "/ai-assistant", label: "Mr.Guy-de" }] : []),
     ...(isAuthenticated ? [{ to: dashboardHref, label: "Dashboard" }] : []),
   ];
 

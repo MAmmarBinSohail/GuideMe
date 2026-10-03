@@ -1,9 +1,13 @@
 import { createFileRoute } from "@/lib/router-compat";
 import { useEffect, useState } from "react";
-import { Loader2, PlayCircle, Search } from "lucide-react";
+import { Loader2, PlayCircle, Search, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/supabaseClient";
 import { getCategory } from "@/lib/categories";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { adminService } from "@/lib/adminService.ts";
 
 export const Route = createFileRoute("/videos")({
   head: () => ({ meta: [{ title: "Videos — GuideMe" }] }),
@@ -48,16 +52,30 @@ function VideosPage() {
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
 
+  const { user } = useAuth();
+
   useEffect(() => {
     fetchVideos();
   }, []);
+
+  async function deleteVideo(videoId: string) {
+    try {
+      await adminService.deleteVideo(videoId);
+      toast.success("Video deleted.");
+      fetchVideos();
+    } catch (err) {
+      toast.error("Failed to delete video.");
+      console.error(err);
+    }
+  }
 
   async function fetchVideos() {
     setLoading(true);
     try {
       const { data, error } = await supabase
         .from("mentor_videos")
-        .select(`
+        .select(
+          `
           *,
           mentor_profiles (
             id,
@@ -67,7 +85,8 @@ function VideosPage() {
               is_verified
             )
           )
-        `)
+        `,
+        )
         .order("created_at", { ascending: false });
 
       if (!error) {
@@ -141,7 +160,7 @@ function VideosPage() {
                   : "bg-muted text-muted-foreground hover:bg-muted/80"
               }`}
             >
-              {cat === "all" ? "All Categories" : category?.label ?? cat}
+              {cat === "all" ? "All Categories" : (category?.label ?? cat)}
             </button>
           );
         })}
@@ -167,8 +186,7 @@ function VideosPage() {
       ) : (
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((v) => {
-            const mentorName =
-              v.mentor_profiles?.profiles?.full_name ?? "Mentor";
+            const mentorName = v.mentor_profiles?.profiles?.full_name ?? "Mentor";
             const category = getCategory(
               v.mentor_profiles?.category ?? ""
             );
@@ -192,24 +210,29 @@ function VideosPage() {
 
                 {/* Video Info */}
                 <div className="p-3">
-                  {v.title && (
-                    <p className="text-sm font-semibold line-clamp-2 mb-1">
-                      {v.title}
-                    </p>
-                  )}
+                  {v.title && <p className="text-sm font-semibold line-clamp-2 mb-1">{v.title}</p>}
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-xs text-muted-foreground">
                       {mentorName}
                     </p>
-                    {category && (
-                      <Badge
-                        variant="secondary"
-                        className="gap-1 text-[10px]"
-                      >
-                        {CatIcon && <CatIcon className="h-2.5 w-2.5" />}
-                        {category.label}
-                      </Badge>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {category && (
+                        <Badge variant="secondary" className="gap-1 text-[10px]">
+                          {CatIcon && <CatIcon className="h-2.5 w-2.5" />}
+                          {category.label}
+                        </Badge>
+                      )}
+                      {user?.role === "admin" && (
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                          onClick={() => deleteVideo(v.id)}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>

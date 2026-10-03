@@ -41,6 +41,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             .single();
 
           if (profile) {
+            // Check if user is blocked
+            if (profile.is_blocked) {
+              await supabase.auth.signOut();
+              setUser(null);
+              setLoading(false);
+              return;
+            }
+
             setUser({
               id: session.user.id,
               name: profile.full_name,
@@ -74,7 +82,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             .single();
 
           if (profile) {
-            // If profile exists but no role set (Google OAuth new user)
+            // Block check — sign out immediately if blocked
+            if (profile.is_blocked) {
+              await supabase.auth.signOut();
+              setUser(null);
+              return;
+            }
+
+            // Handle Google OAuth new user with no role/name
             if (!profile.role || !profile.full_name) {
               await supabase
                 .from("profiles")

@@ -413,10 +413,13 @@ function MenteeDashboard() {
                   </Button>
                 </a>
               )}
+              <p className="text-xs text-muted-foreground mt-2 italic">
+                Need to reschedule? Cancel and rebook a new time, or contact your mentor directly via the meeting link.
+              </p>
             </div>
           )}
+          
         </div>
-
         {loading ? (
           <div className="flex items-center justify-center py-20">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
