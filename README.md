@@ -3,7 +3,7 @@
 > A Final Year Project by Department of Software Engineering, PUCIT, University of the Punjab, Lahore.
 
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-guideme--theta.vercel.app-4F46E5?style=for-the-badge)](https://guideme-theta.vercel.app)
-[![GitHub Release](https://img.shields.io/badge/Release-v2.0.3-success?style=for-the-badge)](https://github.com/MAmmarBinSohail/GuideMe/releases/tag/v2.0.3)
+[![GitHub Release](https://img.shields.io/badge/Release-v2.0.2-success?style=for-the-badge)](https://github.com/MAmmarBinSohail/GuideMe/releases/tag/v2.0.2)
 
 A full-stack web application connecting students and individuals with verified expert mentors across **12 categories**: Academic, Career, Business, Technology, Health, Personal, Creative, Finance, Legal, Leadership, Language, and Engineering.
 
