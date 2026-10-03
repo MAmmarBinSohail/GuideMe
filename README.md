@@ -210,6 +210,7 @@ src/
 supabase/
 └── functions/
     └── send-email/             # Email via Google Apps Script
+    └── admin-actions/          # for admin's action
 ```
 
 ---
