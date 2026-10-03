@@ -70,7 +70,7 @@ function PrivacyPolicyPage() {
           <ul className="list-disc pl-5 space-y-1 mt-2">
             <li><strong className="text-foreground">Supabase:</strong> Database, authentication, and file storage</li>
             <li><strong className="text-foreground">Vercel:</strong> Application hosting and deployment</li>
-            <li><strong className="text-foreground">Google Gemini AI:</strong> AI chatbot functionality</li>
+            <li><strong className="text-foreground">Groq API:</strong> AI chatbot functionality (Mr.Guy-de)</li>
             <li><strong className="text-foreground">Jitsi Meet:</strong> Video meeting links generation</li>
             <li><strong className="text-foreground">Google Apps Script:</strong> Email notification delivery</li>
           </ul>

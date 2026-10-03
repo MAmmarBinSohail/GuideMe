@@ -83,7 +83,7 @@ function TermsOfServicePage() {
         <section>
           <h2 className="text-base font-semibold text-foreground mb-2">7. AI Assistant</h2>
           <p>
-            Mr.Guy-de is an AI assistant powered by Google Gemini. Responses are generated
+            Mr.Guy-de is an AI assistant powered by Groq API (openai/gpt-oss-20b). Responses are generated
             by artificial intelligence and should not be considered professional advice.
             Always consult qualified professionals for medical, legal, or financial matters.
           </p>

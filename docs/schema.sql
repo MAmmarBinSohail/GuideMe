@@ -1,13 +1,7 @@
 -- ============================================================
--- GuideMe Database Schema
--- Version: 2.0.0
+-- GuideMe Database Schema v2.0.3
 -- Description: Complete database schema for GuideMe
 -- A Smart Online Counseling & Mentorship Marketplace
--- Built by: M.Usman Hassan (BSEF22M010)
---           M.Ammar Bin Sohail (BSEF22M056)
--- Supervised by: Dr. Mufassra Naz, PUCIT
--- ============================================================
-
 -- ============================================================
 -- SECTION 1: CORE TABLES
 -- ============================================================
@@ -28,16 +22,13 @@ CREATE TABLE profiles (
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Users can view own profile"
-  ON profiles FOR SELECT
-  USING (auth.uid() = id);
+  ON profiles FOR SELECT USING (auth.uid() = id);
 
 CREATE POLICY "Users can update own profile"
-  ON profiles FOR UPDATE
-  USING (auth.uid() = id);
+  ON profiles FOR UPDATE USING (auth.uid() = id);
 
-CREATE POLICY "Anyone can view mentor profiles"
-  ON profiles FOR SELECT
-  USING (true);
+CREATE POLICY "Anyone can view all profiles"
+  ON profiles FOR SELECT USING (true);
 
 -- ============================================================
 
@@ -70,16 +61,13 @@ CREATE TABLE mentor_profiles (
 ALTER TABLE mentor_profiles ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Anyone can view mentor profiles"
-  ON mentor_profiles FOR SELECT
-  USING (true);
+  ON mentor_profiles FOR SELECT USING (true);
 
 CREATE POLICY "Mentors can update own profile"
-  ON mentor_profiles FOR UPDATE
-  USING (auth.uid() = user_id);
+  ON mentor_profiles FOR UPDATE USING (auth.uid() = user_id);
 
 CREATE POLICY "Mentors can insert own profile"
-  ON mentor_profiles FOR INSERT
-  WITH CHECK (auth.uid() = user_id);
+  ON mentor_profiles FOR INSERT WITH CHECK (auth.uid() = user_id);
 
 -- ============================================================
 
@@ -101,23 +89,9 @@ ALTER TABLE mentor_education ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Anyone can view mentor education"
   ON mentor_education FOR SELECT USING (true);
 
-CREATE POLICY "Mentors can insert own education"
-  ON mentor_education FOR INSERT
-  WITH CHECK (
-    auth.uid() = (SELECT user_id FROM mentor_profiles WHERE id = mentor_id)
-  );
-
-CREATE POLICY "Mentors can update own education"
-  ON mentor_education FOR UPDATE
-  USING (
-    auth.uid() = (SELECT user_id FROM mentor_profiles WHERE id = mentor_id)
-  );
-
-CREATE POLICY "Mentors can delete own education"
-  ON mentor_education FOR DELETE
-  USING (
-    auth.uid() = (SELECT user_id FROM mentor_profiles WHERE id = mentor_id)
-  );
+CREATE POLICY "Mentors can manage own education"
+  ON mentor_education FOR ALL
+  USING (auth.uid() = (SELECT user_id FROM mentor_profiles WHERE id = mentor_id));
 
 CREATE INDEX idx_mentor_education_mentor ON mentor_education(mentor_id);
 
@@ -141,23 +115,9 @@ ALTER TABLE mentor_experience ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Anyone can view mentor experience"
   ON mentor_experience FOR SELECT USING (true);
 
-CREATE POLICY "Mentors can insert own experience"
-  ON mentor_experience FOR INSERT
-  WITH CHECK (
-    auth.uid() = (SELECT user_id FROM mentor_profiles WHERE id = mentor_id)
-  );
-
-CREATE POLICY "Mentors can update own experience"
-  ON mentor_experience FOR UPDATE
-  USING (
-    auth.uid() = (SELECT user_id FROM mentor_profiles WHERE id = mentor_id)
-  );
-
-CREATE POLICY "Mentors can delete own experience"
-  ON mentor_experience FOR DELETE
-  USING (
-    auth.uid() = (SELECT user_id FROM mentor_profiles WHERE id = mentor_id)
-  );
+CREATE POLICY "Mentors can manage own experience"
+  ON mentor_experience FOR ALL
+  USING (auth.uid() = (SELECT user_id FROM mentor_profiles WHERE id = mentor_id));
 
 CREATE INDEX idx_mentor_experience_mentor ON mentor_experience(mentor_id);
 
@@ -180,23 +140,9 @@ ALTER TABLE mentor_certifications ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Anyone can view mentor certifications"
   ON mentor_certifications FOR SELECT USING (true);
 
-CREATE POLICY "Mentors can insert own certifications"
-  ON mentor_certifications FOR INSERT
-  WITH CHECK (
-    auth.uid() = (SELECT user_id FROM mentor_profiles WHERE id = mentor_id)
-  );
-
-CREATE POLICY "Mentors can update own certifications"
-  ON mentor_certifications FOR UPDATE
-  USING (
-    auth.uid() = (SELECT user_id FROM mentor_profiles WHERE id = mentor_id)
-  );
-
-CREATE POLICY "Mentors can delete own certifications"
-  ON mentor_certifications FOR DELETE
-  USING (
-    auth.uid() = (SELECT user_id FROM mentor_profiles WHERE id = mentor_id)
-  );
+CREATE POLICY "Mentors can manage own certifications"
+  ON mentor_certifications FOR ALL
+  USING (auth.uid() = (SELECT user_id FROM mentor_profiles WHERE id = mentor_id));
 
 CREATE INDEX idx_mentor_certifications_mentor ON mentor_certifications(mentor_id);
 
@@ -226,22 +172,13 @@ CREATE POLICY "Verified mentors can insert own videos"
     auth.uid() = (
       SELECT mp.user_id FROM mentor_profiles mp
       JOIN profiles p ON p.id = mp.user_id
-      WHERE mp.id = mentor_id
-      AND p.is_verified = true
+      WHERE mp.id = mentor_id AND p.is_verified = true
     )
   );
 
-CREATE POLICY "Mentors can update own videos"
-  ON mentor_videos FOR UPDATE
-  USING (
-    auth.uid() = (SELECT user_id FROM mentor_profiles WHERE id = mentor_id)
-  );
-
-CREATE POLICY "Mentors can delete own videos"
-  ON mentor_videos FOR DELETE
-  USING (
-    auth.uid() = (SELECT user_id FROM mentor_profiles WHERE id = mentor_id)
-  );
+CREATE POLICY "Mentors can manage own videos"
+  ON mentor_videos FOR ALL
+  USING (auth.uid() = (SELECT user_id FROM mentor_profiles WHERE id = mentor_id));
 
 CREATE INDEX idx_mentor_videos_mentor ON mentor_videos(mentor_id);
 
@@ -265,27 +202,12 @@ ALTER TABLE mentor_weekly_availability ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Anyone can view weekly availability"
   ON mentor_weekly_availability FOR SELECT USING (true);
 
-CREATE POLICY "Mentors can insert own weekly availability"
-  ON mentor_weekly_availability FOR INSERT
-  WITH CHECK (
-    auth.uid() = (SELECT user_id FROM mentor_profiles WHERE id = mentor_id)
-  );
-
-CREATE POLICY "Mentors can update own weekly availability"
-  ON mentor_weekly_availability FOR UPDATE
-  USING (
-    auth.uid() = (SELECT user_id FROM mentor_profiles WHERE id = mentor_id)
-  );
-
-CREATE POLICY "Mentors can delete own weekly availability"
-  ON mentor_weekly_availability FOR DELETE
-  USING (
-    auth.uid() = (SELECT user_id FROM mentor_profiles WHERE id = mentor_id)
-  );
+CREATE POLICY "Mentors can manage own availability"
+  ON mentor_weekly_availability FOR ALL
+  USING (auth.uid() = (SELECT user_id FROM mentor_profiles WHERE id = mentor_id));
 
 CREATE INDEX idx_mentor_weekly_availability_mentor
   ON mentor_weekly_availability(mentor_id);
-
 CREATE INDEX idx_mentor_weekly_availability_day
   ON mentor_weekly_availability(day_of_week);
 
@@ -313,6 +235,9 @@ CREATE TABLE bookings (
 
 ALTER TABLE bookings ENABLE ROW LEVEL SECURITY;
 
+CREATE POLICY "Anyone can view booking counts"
+  ON bookings FOR SELECT USING (true);
+
 CREATE POLICY "Users can view own bookings"
   ON bookings FOR SELECT
   USING (
@@ -321,19 +246,12 @@ CREATE POLICY "Users can view own bookings"
   );
 
 CREATE POLICY "Mentees can create bookings"
-  ON bookings FOR INSERT
-  WITH CHECK (auth.uid() = mentee_id);
+  ON bookings FOR INSERT WITH CHECK (auth.uid() = mentee_id);
 
 CREATE POLICY "Users can update own bookings"
   ON bookings FOR UPDATE
   USING (
     auth.uid() = mentee_id OR
-    auth.uid() = (SELECT user_id FROM mentor_profiles WHERE id = mentor_id)
-  );
-
-CREATE POLICY "Mentors can mark own bookings completed"
-  ON bookings FOR UPDATE
-  USING (
     auth.uid() = (SELECT user_id FROM mentor_profiles WHERE id = mentor_id)
   );
 
@@ -364,13 +282,8 @@ CREATE POLICY "Users can view own meetings"
     )
   );
 
-CREATE POLICY "System can insert meetings"
-  ON meetings FOR INSERT
-  WITH CHECK (auth.uid() IS NOT NULL);
-
-CREATE POLICY "System can update meetings"
-  ON meetings FOR UPDATE
-  USING (auth.uid() IS NOT NULL);
+CREATE POLICY "System can manage meetings"
+  ON meetings FOR ALL USING (auth.uid() IS NOT NULL);
 
 -- ============================================================
 
@@ -391,8 +304,11 @@ CREATE POLICY "Anyone can view reviews"
   ON reviews FOR SELECT USING (true);
 
 CREATE POLICY "Mentees can insert own reviews"
-  ON reviews FOR INSERT
-  WITH CHECK (auth.uid() = mentee_id);
+  ON reviews FOR INSERT WITH CHECK (auth.uid() = mentee_id);
+
+CREATE POLICY "Admin can delete reviews"
+  ON reviews FOR DELETE
+  USING (auth.uid() IN (SELECT id FROM profiles WHERE role = 'admin'));
 
 -- ============================================================
 
@@ -416,7 +332,6 @@ CREATE TABLE payments (
     )
   ),
   transaction_reference TEXT,
-  transaction_id TEXT,
   note TEXT,
   paid_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT now()
@@ -425,14 +340,12 @@ CREATE TABLE payments (
 ALTER TABLE payments ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Users can view own payments"
-  ON payments FOR SELECT
-  USING (auth.uid() = user_id);
+  ON payments FOR SELECT USING (auth.uid() = user_id);
 
 CREATE POLICY "Users can insert own payments"
-  ON payments FOR INSERT
-  WITH CHECK (auth.uid() = user_id);
+  ON payments FOR INSERT WITH CHECK (auth.uid() = user_id);
 
-CREATE POLICY "Mentors can insert overage payments for their mentees"
+CREATE POLICY "Mentors can insert overage payments"
   ON payments FOR INSERT
   WITH CHECK (
     payment_type = 'overage'
@@ -443,6 +356,10 @@ CREATE POLICY "Mentors can insert overage payments for their mentees"
       )
     )
   );
+
+CREATE POLICY "Admin can view all payments"
+  ON payments FOR SELECT
+  USING (auth.uid() IN (SELECT id FROM profiles WHERE role = 'admin'));
 
 -- ============================================================
 
@@ -463,21 +380,11 @@ CREATE TABLE notifications (
 
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Users can view own notifications"
-  ON notifications FOR SELECT
-  USING (auth.uid() = user_id);
+CREATE POLICY "Users can manage own notifications"
+  ON notifications FOR ALL USING (auth.uid() = user_id);
 
-CREATE POLICY "Users can insert own notifications"
-  ON notifications FOR INSERT
-  WITH CHECK (auth.uid() IS NOT NULL);
-
-CREATE POLICY "Users can update own notifications"
-  ON notifications FOR UPDATE
-  USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can delete own notifications"
-  ON notifications FOR DELETE
-  USING (auth.uid() = user_id);
+CREATE POLICY "System can insert notifications"
+  ON notifications FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
 
 -- ============================================================
 
@@ -494,17 +401,8 @@ CREATE TABLE notification_preferences (
 
 ALTER TABLE notification_preferences ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Users can view own preferences"
-  ON notification_preferences FOR SELECT
-  USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can update own preferences"
-  ON notification_preferences FOR UPDATE
-  USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can insert own preferences"
-  ON notification_preferences FOR INSERT
-  WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can manage own preferences"
+  ON notification_preferences FOR ALL USING (auth.uid() = user_id);
 
 -- ============================================================
 
@@ -521,17 +419,8 @@ CREATE TABLE chatbot_sessions (
 
 ALTER TABLE chatbot_sessions ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Users can view own chatbot sessions"
-  ON chatbot_sessions FOR SELECT
-  USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can insert own chatbot sessions"
-  ON chatbot_sessions FOR INSERT
-  WITH CHECK (auth.uid() = user_id);
-
-CREATE POLICY "Users can update own chatbot sessions"
-  ON chatbot_sessions FOR UPDATE
-  USING (auth.uid() = user_id);
+CREATE POLICY "Users can manage own chatbot sessions"
+  ON chatbot_sessions FOR ALL USING (auth.uid() = user_id);
 
 -- ============================================================
 
@@ -546,17 +435,9 @@ CREATE TABLE chatbot_messages (
 
 ALTER TABLE chatbot_messages ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Users can view own chatbot messages"
-  ON chatbot_messages FOR SELECT
+CREATE POLICY "Users can manage own chatbot messages"
+  ON chatbot_messages FOR ALL
   USING (
-    session_id IN (
-      SELECT id FROM chatbot_sessions WHERE user_id = auth.uid()
-    )
-  );
-
-CREATE POLICY "Users can insert own chatbot messages"
-  ON chatbot_messages FOR INSERT
-  WITH CHECK (
     session_id IN (
       SELECT id FROM chatbot_sessions WHERE user_id = auth.uid()
     )
@@ -564,20 +445,25 @@ CREATE POLICY "Users can insert own chatbot messages"
 
 -- ============================================================
 
--- Chatbot FAQs table
-CREATE TABLE chatbot_faqs (
+-- Subscribers table
+CREATE TABLE subscribers (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  keyword TEXT NOT NULL,
-  question TEXT NOT NULL,
-  answer TEXT NOT NULL,
-  category TEXT,
-  created_at TIMESTAMPTZ DEFAULT now()
+  email TEXT NOT NULL UNIQUE,
+  subscribed_at TIMESTAMPTZ DEFAULT now(),
+  is_active BOOLEAN DEFAULT true
 );
 
-ALTER TABLE chatbot_faqs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE subscribers ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Anyone can view FAQs"
-  ON chatbot_faqs FOR SELECT USING (true);
+CREATE POLICY "Anyone can subscribe"
+  ON subscribers FOR INSERT WITH CHECK (true);
+
+CREATE POLICY "Anyone can view subscribers"
+  ON subscribers FOR SELECT USING (true);
+
+CREATE POLICY "Admin can manage subscribers"
+  ON subscribers FOR ALL
+  USING (auth.uid() IN (SELECT id FROM profiles WHERE role = 'admin'));
 
 -- ============================================================
 -- SECTION 2: SQL FUNCTIONS
@@ -608,7 +494,6 @@ BEGIN
         AND p_scheduled_at + (p_duration_minutes || ' minutes')::INTERVAL
           >= scheduled_at + (duration_minutes || ' minutes')::INTERVAL)
     );
-
   RETURN overlap_count > 0;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -628,7 +513,6 @@ DECLARE
   slot_start_ts TIMESTAMPTZ;
 BEGIN
   v_day_of_week := EXTRACT(DOW FROM p_date);
-
   FOR block IN
     SELECT mwa.start_time, mwa.end_time
     FROM mentor_weekly_availability mwa
@@ -637,30 +521,26 @@ BEGIN
       AND mwa.is_active = true
   LOOP
     slot_start := block.start_time;
-
     WHILE slot_start + (p_duration_minutes || ' minutes')::INTERVAL
       <= block.end_time LOOP
       slot_start_ts :=
         (p_date::TEXT || ' ' || slot_start::TEXT)::TIMESTAMPTZ;
-
       IF NOT check_booking_overlap(
         p_mentor_id, slot_start_ts, p_duration_minutes
       ) THEN
         start_time := slot_start;
         RETURN NEXT;
       END IF;
-
       slot_start := slot_start + INTERVAL '30 minutes';
     END LOOP;
   END LOOP;
-
   RETURN;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- ============================================================
 
--- Function: Check if mentee is eligible for free session
+-- Function: Check free session eligibility
 CREATE OR REPLACE FUNCTION is_eligible_for_free_session(
   p_mentee_id UUID,
   p_mentor_id UUID
@@ -671,17 +551,14 @@ DECLARE
 BEGIN
   SELECT is_free_first_session INTO mentor_allows_free
   FROM mentor_profiles WHERE id = p_mentor_id;
-
   IF mentor_allows_free IS NOT TRUE THEN
     RETURN false;
   END IF;
-
   SELECT COUNT(*) INTO prior_bookings
   FROM bookings
   WHERE mentee_id = p_mentee_id
     AND mentor_id = p_mentor_id
     AND status IN ('confirmed', 'completed');
-
   RETURN prior_bookings = 0;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -696,7 +573,6 @@ DECLARE
   v_user_id UUID;
   v_has_education BOOLEAN;
   v_has_bio BOOLEAN;
-  v_has_avatar BOOLEAN;
   v_has_availability BOOLEAN;
   v_should_be_verified BOOLEAN;
 BEGIN
@@ -711,20 +587,15 @@ BEGIN
   INTO v_has_bio
   FROM mentor_profiles WHERE id = p_mentor_id;
 
-  SELECT profile_picture_url IS NOT NULL
-    AND LENGTH(profile_picture_url) > 0
-  INTO v_has_avatar
-  FROM profiles WHERE id = v_user_id;
-
   SELECT EXISTS (
     SELECT 1 FROM mentor_weekly_availability
     WHERE mentor_id = p_mentor_id AND is_active = true
   ) INTO v_has_availability;
 
+  -- Profile picture NOT required for verification
   v_should_be_verified :=
     v_has_education AND
     v_has_bio AND
-    v_has_avatar AND
     v_has_availability;
 
   UPDATE profiles
@@ -737,7 +608,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- SECTION 3: TRIGGERS
 -- ============================================================
 
--- Trigger: Auto-create profile on signup
+-- Auto-create profile on signup
 CREATE OR REPLACE FUNCTION handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -748,22 +619,19 @@ BEGIN
     NEW.email,
     COALESCE(NEW.raw_user_meta_data->>'role', 'mentee')
   );
-
   INSERT INTO notification_preferences (user_id)
   VALUES (NEW.id);
-
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
-  FOR EACH ROW
-  EXECUTE FUNCTION handle_new_user();
+  FOR EACH ROW EXECUTE FUNCTION handle_new_user();
 
 -- ============================================================
 
--- Trigger: Auto-verify mentor on education change
+-- Re-check verification on education change
 CREATE OR REPLACE FUNCTION trigger_check_verification_education()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -776,12 +644,11 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 CREATE TRIGGER on_education_change
   AFTER INSERT OR UPDATE OR DELETE ON mentor_education
-  FOR EACH ROW
-  EXECUTE FUNCTION trigger_check_verification_education();
+  FOR EACH ROW EXECUTE FUNCTION trigger_check_verification_education();
 
 -- ============================================================
 
--- Trigger: Auto-verify mentor on bio change
+-- Re-check verification on bio change
 CREATE OR REPLACE FUNCTION trigger_check_verification_bio()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -792,36 +659,11 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 CREATE TRIGGER on_mentor_bio_change
   AFTER UPDATE OF bio ON mentor_profiles
-  FOR EACH ROW
-  EXECUTE FUNCTION trigger_check_verification_bio();
+  FOR EACH ROW EXECUTE FUNCTION trigger_check_verification_bio();
 
 -- ============================================================
 
--- Trigger: Auto-verify mentor on profile picture change
-CREATE OR REPLACE FUNCTION trigger_check_verification_avatar()
-RETURNS TRIGGER AS $$
-DECLARE
-  v_mentor_id UUID;
-BEGIN
-  SELECT id INTO v_mentor_id
-  FROM mentor_profiles WHERE user_id = NEW.id;
-
-  IF v_mentor_id IS NOT NULL THEN
-    PERFORM check_mentor_verification(v_mentor_id);
-  END IF;
-
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
-CREATE TRIGGER on_profile_avatar_change
-  AFTER UPDATE OF profile_picture_url ON profiles
-  FOR EACH ROW
-  EXECUTE FUNCTION trigger_check_verification_avatar();
-
--- ============================================================
-
--- Trigger: Auto-verify mentor on availability change
+-- Re-check verification on availability change
 CREATE OR REPLACE FUNCTION trigger_check_verification_availability()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -834,12 +676,11 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 CREATE TRIGGER on_availability_change_verification
   AFTER INSERT OR UPDATE OR DELETE ON mentor_weekly_availability
-  FOR EACH ROW
-  EXECUTE FUNCTION trigger_check_verification_availability();
+  FOR EACH ROW EXECUTE FUNCTION trigger_check_verification_availability();
 
 -- ============================================================
 
--- Trigger: Notify mentor on availability change
+-- Notify mentor on availability change
 CREATE OR REPLACE FUNCTION notify_availability_change()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -854,27 +695,23 @@ BEGIN
     v_user_id,
     'system',
     'Availability Updated',
-    'Your weekly availability has been updated. New bookings will follow this updated schedule.'
+    'Your weekly availability has been updated successfully.'
   );
-
   RETURN COALESCE(NEW, OLD);
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 CREATE TRIGGER on_weekly_availability_change
   AFTER INSERT OR UPDATE OR DELETE ON mentor_weekly_availability
-  FOR EACH ROW
-  EXECUTE FUNCTION notify_availability_change();
+  FOR EACH ROW EXECUTE FUNCTION notify_availability_change();
 
 -- ============================================================
 -- SECTION 4: STORAGE
 -- ============================================================
 
--- Storage bucket for profile pictures
--- Run in Supabase Storage dashboard:
--- Create bucket named 'avatars' with public access enabled
+-- Storage bucket: 'avatars' (create in Supabase Storage dashboard)
+-- Enable public access on the bucket
 
--- Storage RLS policies for avatars bucket:
 CREATE POLICY "Users can upload own avatar"
   ON storage.objects FOR INSERT
   WITH CHECK (
@@ -900,6 +737,7 @@ CREATE POLICY "Users can update own avatar"
 CREATE INDEX idx_bookings_mentee ON bookings(mentee_id);
 CREATE INDEX idx_bookings_mentor ON bookings(mentor_id);
 CREATE INDEX idx_bookings_status ON bookings(status);
+CREATE INDEX idx_bookings_scheduled ON bookings(scheduled_at);
 CREATE INDEX idx_notifications_user ON notifications(user_id);
 CREATE INDEX idx_notifications_read ON notifications(is_read);
 CREATE INDEX idx_reviews_mentor ON reviews(mentor_id);
@@ -907,7 +745,9 @@ CREATE INDEX idx_payments_user ON payments(user_id);
 CREATE INDEX idx_payments_booking ON payments(booking_id);
 CREATE INDEX idx_chatbot_sessions_user ON chatbot_sessions(user_id);
 CREATE INDEX idx_chatbot_messages_session ON chatbot_messages(session_id);
+CREATE INDEX idx_mentor_profiles_category ON mentor_profiles(category);
+CREATE INDEX idx_mentor_profiles_available ON mentor_profiles(is_available);
 
 -- ============================================================
--- END OF SCHEMA
+-- END OF SCHEMA v2.0.3
 -- ============================================================

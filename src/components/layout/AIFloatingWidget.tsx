@@ -10,6 +10,9 @@ export function AIFloatingWidget() {
   const { isAuthenticated } = useAuth();
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
+  const { user } = useAuth();
+
+  if (user?.role === "admin") return null;
 
   if (pathname === "/ai-assistant") return null;
 
