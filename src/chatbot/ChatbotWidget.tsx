@@ -1,13 +1,13 @@
-import { useNavigate } from '@/lib/router-compat';
+import { useNavigate } from "@/lib/router-compat";
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "../supabaseClient";
 import { getOrCreateSession, loadMessages, sendChat } from "./chatbotService";
 
 const WELCOME_MESSAGE = {
-  sender: 'bot',
+  sender: "bot",
   message_text: `Hi there! 👋 Welcome to GuideMe.
 Before I help you find the right mentor, I have
-a few quick questions to better understand your needs.`
+a few quick questions to better understand your needs.`,
 };
 
 export default function ChatbotWidget() {
@@ -72,14 +72,16 @@ export default function ChatbotWidget() {
 
   async function initializeChat() {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) return;
 
       // Fetch user profile to get name and role
       const { data: profile } = await supabase
-        .from('profiles')
-        .select('full_name, role')
-        .eq('id', user.id)
+        .from("profiles")
+        .select("full_name, role")
+        .eq("id", user.id)
         .single();
 
       setUserProfile(profile);
@@ -88,15 +90,13 @@ export default function ChatbotWidget() {
       if (!session) return;
 
       setSessionId(session.id);
-      setPhase(session.phase || 'onboarding');
+      setPhase(session.phase || "onboarding");
       setOnboardingData(session.onboarding_data || {});
 
       const history = await loadMessages(session.id);
 
       if (history.length > 0) {
-        const validMessages = history.filter(
-          m => m.message_text && m.message_text.trim() !== ''
-        );
+        const validMessages = history.filter((m) => m.message_text && m.message_text.trim() !== "");
         if (validMessages.length > 0) {
           setMessages(validMessages);
           setInitialized(true);
@@ -105,25 +105,22 @@ export default function ChatbotWidget() {
       }
 
       // New session — generate personalized welcome
-      const welcomeText = profile?.role === 'mentor'
-        ? `Hi ${profile?.full_name?.split(' ')[0] || 'there'}! 👋 Welcome to GuideMe Assistant.\nI am here to help you get the most out of GuideMe as a mentor.\nBefore I help, I have a couple of quick questions.\n\nWhat aspect of GuideMe would you like help with? (Setting availability, pricing, managing sessions, verification, or something else?)`
-        : `Hi ${profile?.full_name?.split(' ')[0] || 'there'}! 👋 Welcome to GuideMe Assistant.\nI am here to help you find the right mentor and get the most out of GuideMe.\nBefore I help, I have a couple of quick questions.\n\nWhich area do you need guidance in? (Academic, Career, Business, Technology, Health, Personal, Creative, Finance, Legal, Leadership, Language, or Engineering)`;
+      const welcomeText =
+        profile?.role === "mentor"
+          ? `Hi ${profile?.full_name?.split(" ")[0] || "there"}! 👋 Welcome to GuideMe Assistant.\nI am here to help you get the most out of GuideMe as a mentor.\nBefore I help, I have a couple of quick questions.\n\nWhat aspect of GuideMe would you like help with? (Setting availability, pricing, managing sessions, verification, or something else?)`
+          : `Hi ${profile?.full_name?.split(" ")[0] || "there"}! 👋 Welcome to GuideMe Assistant.\nI am here to help you find the right mentor and get the most out of GuideMe.\nBefore I help, I have a couple of quick questions.\n\nWhich area do you need guidance in? (Academic, Career, Business, Technology, Health, Personal, Creative, Finance, Legal, Leadership, Language, or Engineering)`;
 
-      const welcomeMsg = { sender: 'bot', message_text: welcomeText };
+      const welcomeMsg = { sender: "bot", message_text: welcomeText };
       setMessages([welcomeMsg]);
 
       // Generate quick replies for welcome message
-      const replies = getQuickReplies(
-        'onboarding',
-        welcomeText,
-        profile?.role || 'mentee'
-      );
+      const replies = getQuickReplies("onboarding", welcomeText, profile?.role || "mentee");
       setQuickReplies(replies);
 
       setInitialized(true);
 
     } catch (err) {
-      console.error('Chat initialization failed:', err);
+      console.error("Chat initialization failed:", err);
     }
   }
   
@@ -131,7 +128,7 @@ export default function ChatbotWidget() {
     phase: string,
     botMessage: string,
     userRole: string
-  ): {label: string; value: string; action?: string}[] {
+  ): { label: string; value: string; action?: string }[] {
     const msg = botMessage.toLowerCase();
 
     // ─── ONBOARDING PHASE ────────────────────────────
@@ -250,11 +247,11 @@ export default function ChatbotWidget() {
 
     // After mentor recommendation
     if (
-      phase === 'conversation' &&
-      (msg.includes('i recommend') ||
-       msg.includes('based on your') ||
-       msg.includes('perfect mentor') ||
-       msg.includes('great mentor'))
+      phase === "conversation" &&
+      (msg.includes("i recommend") ||
+        msg.includes("based on your") ||
+        msg.includes("perfect mentor") ||
+        msg.includes("great mentor"))
     ) {
       const categories = [
         'academic', 'career', 'business', 'technology',

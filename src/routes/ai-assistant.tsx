@@ -267,7 +267,7 @@ function AIAssistantPage() {
 
     // After booking/platform explanation
     if (
-      phase === 'conversation' &&
+      phase === "conversation" &&
       (msg.includes('book a session') ||
        msg.includes('booking page') ||
        msg.includes('select a date'))
@@ -354,13 +354,13 @@ function AIAssistantPage() {
 
     // Settings related
     if (
-      phase === 'conversation' &&
-      (msg.includes('settings') ||
-       msg.includes('profile picture') ||
-       msg.includes('change password') ||
-       msg.includes('hibernate') ||
-       msg.includes('theme') ||
-       msg.includes('dark mode'))
+      phase === "conversation" &&
+      (msg.includes("settings") ||
+        msg.includes("profile picture") ||
+        msg.includes("change password") ||
+        msg.includes("hibernate") ||
+        msg.includes("theme") ||
+        msg.includes("dark mode"))
     ) {
       return [
         { label: '⚙️ Go to Settings', value: 'go_settings', action: 'navigate:/settings' },
@@ -655,7 +655,7 @@ function AIAssistantPage() {
                     key={i}
                     onClick={() => {
                       if (qr.action?.startsWith('navigate:')) {
-                        navigate({ to: qr.action.replace('navigate:', '') as any });
+                        navigate({ to: qr.action.replace("navigate:", "") as any });
                         setQuickReplies([]);
                       } else {
                         handleSend(qr.value);

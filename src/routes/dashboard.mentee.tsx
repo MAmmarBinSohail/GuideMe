@@ -364,85 +364,76 @@ function MenteeDashboard() {
   return (
     <ProtectedRoute allowedRoles={["mentee"]}>
       <div className="container mx-auto px-4 py-10">
-
         <div className="mb-8">
-          <h1 className="text-3xl font-bold tracking-tight">
-            My Sessions
-          </h1>
+          <h1 className="text-3xl font-bold tracking-tight">My Sessions</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Manage your upcoming and past mentorship sessions.
           </p>
 
           {/* Countdown Banner */}
           {nextBooking && countdown && (
-            <div className={`mt-4 rounded-xl border p-4 flex items-center gap-4 ${
-              countdown === "Session is starting now!"
-                ? "bg-green-500/10 border-green-500/30"
-                : countdown.includes("m") && !countdown.includes("h") && !countdown.includes("d")
-                ? "bg-amber-500/10 border-amber-500/30"
-                : "bg-primary/5 border-primary/20"
-            }`}>
-              <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${
-                countdown === "Session is starting now!"
-                  ? "bg-green-500/20"
-                  : "bg-primary/10"
-              }`}>
-                <Clock className="h-5 w-5 text-primary" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold">
-                  {countdown === "Session is starting now!"
-                    ? "🟢 Your session is starting now!"
-                    : `⏱ Next session in ${countdown}`}
-                </p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  {nextBooking.mentor_profiles?.profiles?.full_name ?? "Mentor"} —{" "}
-                  {formatBookingDatePKT(nextBooking.scheduled_at)} at{" "}
-                  {formatTimePKT(nextBooking.scheduled_at)}
-                </p>
-              </div>
-              {nextBooking.meetings?.meeting_link && (
-                <a
-                  href={nextBooking.meetings.meeting_link}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="shrink-0"
+            <><div
+              className={`mt-4 rounded-xl border p-4 flex items-center gap-4 ${countdown === "Session is starting now!"
+                  ? "bg-green-500/10 border-green-500/30"
+                  : countdown.includes("m") && !countdown.includes("h") && !countdown.includes("d")
+                    ? "bg-amber-500/10 border-amber-500/30"
+                    : "bg-primary/5 border-primary/20"}`}
+              >
+                <div
+                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${countdown === "Session is starting now!" ? "bg-green-500/20" : "bg-primary/10"}`}
                 >
-                  <Button size="sm" className="bg-gradient-primary text-primary-foreground">
-                    Join Now
-                  </Button>
-                </a>
-              )}
+                  <Clock className="h-5 w-5 text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold">
+                    {countdown === "Session is starting now!"
+                      ? "🟢 Your session is starting now!"
+                      : `⏱ Next session in ${countdown}`}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {nextBooking.mentor_profiles?.profiles?.full_name ?? "Mentor"} —{" "}
+                    {formatBookingDatePKT(nextBooking.scheduled_at)} at{" "}
+                    {formatTimePKT(nextBooking.scheduled_at)}
+                  </p>
+                </div>
+                {nextBooking.meetings?.meeting_link && (
+                  <a
+                    href={nextBooking.meetings.meeting_link}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="shrink-0"
+                  >
+                    <Button size="sm" className="bg-gradient-primary text-primary-foreground">
+                      Join Now
+                    </Button>
+                  </a>
+                )}
+              </div>
               <p className="text-xs text-muted-foreground mt-2 italic">
-                Need to reschedule? Cancel and rebook a new time, or contact your mentor directly via the meeting link.
+                {" "}
+                Need to reschedule? Cancel and rebook a new time, or contact your mentor directly
+                via the meeting link.{" "}
               </p>
-            </div>
+            </>
           )}
-          
         </div>
         {loading ? (
           <div className="flex items-center justify-center py-20">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
         ) : (
-          <Tabs defaultValue={(() => {
-            const hash = window.location.hash.replace('#', '');
-            const validTabs = ['upcoming', 'past', 'cancelled', 'payments'];
-            return validTabs.includes(hash) ? hash : 'upcoming';
-          })()}>
+          <Tabs
+            defaultValue={(() => {
+              const hash = window.location.hash.replace("#", "");
+              const validTabs = ["upcoming", "past", "cancelled", "payments"];
+              return validTabs.includes(hash) ? hash : "upcoming";
+            })()}
+          >
             <TabsList>
-              <TabsTrigger value="upcoming">
-                Upcoming ({upcoming.length})
-              </TabsTrigger>
-              <TabsTrigger value="past">
-                Past ({past.length})
-              </TabsTrigger>
-              <TabsTrigger value="cancelled">
-                Cancelled ({cancelled.length})
-              </TabsTrigger>
-              <TabsTrigger value="payments">
-                Payments ({payments.length})
-              </TabsTrigger>
+              <TabsTrigger value="upcoming">Upcoming ({upcoming.length})</TabsTrigger>
+              <TabsTrigger value="past">Past ({past.length})</TabsTrigger>
+              <TabsTrigger value="cancelled">Cancelled ({cancelled.length})</TabsTrigger>
+              <TabsTrigger value="payments">Payments ({payments.length})</TabsTrigger>
             </TabsList>
 
             <TabsContent value="upcoming" className="mt-6">
@@ -467,9 +458,7 @@ function MenteeDashboard() {
                       key={b.id}
                       booking={b}
                       variant="upcoming"
-                      onCancel={() =>
-                        handleCancel(b.id)
-                      }
+                      onCancel={() => handleCancel(b.id)}
                     />
                   ))}
                 </div>
@@ -506,11 +495,7 @@ function MenteeDashboard() {
               ) : (
                 <div className="grid gap-4">
                   {cancelled.map((b) => (
-                    <BookingCard
-                      key={b.id}
-                      booking={b}
-                      variant="cancelled"
-                    />
+                    <BookingCard key={b.id} booking={b} variant="cancelled" />
                   ))}
                 </div>
               )}
@@ -524,14 +509,16 @@ function MenteeDashboard() {
               ) : (
                 <div className="space-y-3">
                   {payments.map((payment) => {
-                    const mentorName = payment.bookings
-                      ?.mentor_profiles?.profiles?.full_name
-                      ?? "Unknown Mentor";
+                    const mentorName =
+                      payment.bookings?.mentor_profiles?.profiles?.full_name ?? "Unknown Mentor";
                     const scheduledDate = payment.bookings?.scheduled_at
-                      ? new Date(payment.bookings.scheduled_at).toLocaleDateString(
-                          "en-PK",
-                          { weekday: "short", month: "short", day: "numeric", year: "numeric", timeZone: "Asia/Karachi" }
-                        )
+                      ? new Date(payment.bookings.scheduled_at).toLocaleDateString("en-PK", {
+                          weekday: "short",
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                          timeZone: "Asia/Karachi",
+                        })
                       : "Unknown date";
 
                     return (
@@ -541,42 +528,38 @@ function MenteeDashboard() {
                       >
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-1">
-                            <p className="font-semibold text-sm">
-                              {mentorName}
-                            </p>
-                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium capitalize ${
-                              payment.payment_type === 'overage'
-                                ? 'bg-amber-500/20 text-amber-400'
-                                : 'bg-indigo-500/20 text-indigo-400'
-                            }`}>
-                              {payment.payment_type === 'overage'
-                                ? 'Extra Time'
-                                : 'Session'}
+                            <p className="font-semibold text-sm">{mentorName}</p>
+                            <span
+                              className={`text-[10px] px-2 py-0.5 rounded-full font-medium capitalize ${
+                                payment.payment_type === "overage"
+                                  ? "bg-amber-500/20 text-amber-400"
+                                  : "bg-indigo-500/20 text-indigo-400"
+                              }`}
+                            >
+                              {payment.payment_type === "overage" ? "Extra Time" : "Session"}
                             </span>
-                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
-                              payment.payment_status === 'completed'
-                                ? 'bg-green-500/20 text-green-400'
-                                : 'bg-muted text-muted-foreground'
-                            }`}>
+                            <span
+                              className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
+                                payment.payment_status === "completed"
+                                  ? "bg-green-500/20 text-green-400"
+                                  : "bg-muted text-muted-foreground"
+                              }`}
+                            >
                               {payment.payment_status}
                             </span>
                           </div>
 
-                          <p className="text-xs text-muted-foreground">
-                            {scheduledDate}
-                          </p>
+                          <p className="text-xs text-muted-foreground">{scheduledDate}</p>
 
                           {payment.note && (
-                            <p className="text-xs text-muted-foreground mt-0.5">
-                              {payment.note}
-                            </p>
+                            <p className="text-xs text-muted-foreground mt-0.5">{payment.note}</p>
                           )}
 
                           <p className="text-xs text-muted-foreground mt-0.5">
-                            Paid: {payment.paid_at
+                            Paid:{" "}
+                            {payment.paid_at
                               ? new Date(payment.paid_at).toLocaleDateString()
-                              : new Date(payment.created_at).toLocaleDateString()
-                            }
+                              : new Date(payment.created_at).toLocaleDateString()}
                           </p>
                         </div>
 
@@ -603,10 +586,10 @@ function MenteeDashboard() {
         )}
       </div>
       <ReviewDialog
-          booking={reviewBooking}
-          onClose={() => setReviewBooking(null)}
-          onSubmit={handleSubmitReview}
-        />
+        booking={reviewBooking}
+        onClose={() => setReviewBooking(null)}
+        onSubmit={handleSubmitReview}
+      />
     </ProtectedRoute>
   );
 }
@@ -614,7 +597,7 @@ function MenteeDashboard() {
 function BookingCard({
   booking,
   variant,
-  onCancel, 
+  onCancel,
   onLeaveReview,
   hasReviewed,
 }: {
@@ -640,11 +623,10 @@ function BookingCard({
     .slice(0, 2);
 
   const dateStr = formatBookingDatePKT(booking.scheduled_at);
-    const timeStr = formatTimePKT(booking.scheduled_at);
+  const timeStr = formatTimePKT(booking.scheduled_at);
 
   return (
     <Card className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center">
-
       {mentorAvatar ? (
         <img
           src={mentorAvatar}
@@ -661,16 +643,10 @@ function BookingCard({
         <div className="flex flex-wrap items-center gap-2">
           <p className="font-semibold">{mentorName}</p>
           {variant === "upcoming" && (
-            <Badge className="bg-gradient-primary text-primary-foreground">
-              Confirmed
-            </Badge>
+            <Badge className="bg-gradient-primary text-primary-foreground">Confirmed</Badge>
           )}
-          {variant === "past" && (
-            <Badge variant="secondary">Completed</Badge>
-          )}
-          {variant === "cancelled" && (
-            <Badge variant="destructive">Cancelled</Badge>
-          )}
+          {variant === "past" && <Badge variant="secondary">Completed</Badge>}
+          {variant === "cancelled" && <Badge variant="destructive">Cancelled</Badge>}
           {category && (
             <Badge variant="outline" className="capitalize text-[10px]">
               {category}
@@ -678,9 +654,7 @@ function BookingCard({
           )}
         </div>
 
-        <p className="text-sm text-muted-foreground capitalize">
-          {booking.session_type} Session
-        </p>
+        <p className="text-sm text-muted-foreground capitalize">{booking.session_type} Session</p>
 
         <div className="mt-2 flex flex-wrap gap-4 text-xs text-muted-foreground">
           <span className="flex items-center gap-1">
@@ -725,22 +699,17 @@ function BookingCard({
             </Button>
           </>
         )}
-        {variant === "past" && (
-          hasReviewed ? (
+        {variant === "past" &&
+          (hasReviewed ? (
             <div className="flex items-center gap-1 text-xs text-green-600 font-medium">
               <CheckCircle2 className="h-3.5 w-3.5" />
               Reviewed
             </div>
           ) : (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={onLeaveReview}
-            >
+            <Button size="sm" variant="outline" onClick={onLeaveReview}>
               <Star className="mr-1 h-3.5 w-3.5" /> Leave Review
             </Button>
-          )
-        )}
+          ))}
       </div>
     </Card>
   );
@@ -801,10 +770,15 @@ function ReviewDialog({
               ))}
             </div>
             <p className="text-xs text-muted-foreground">
-              {rating === 1 ? "Poor" :
-               rating === 2 ? "Fair" :
-               rating === 3 ? "Good" :
-               rating === 4 ? "Very Good" : "Excellent"}
+              {rating === 1
+                ? "Poor"
+                : rating === 2
+                  ? "Fair"
+                  : rating === 3
+                    ? "Good"
+                    : rating === 4
+                      ? "Very Good"
+                      : "Excellent"}
             </p>
           </div>
 
@@ -826,14 +800,7 @@ function ReviewDialog({
           </Button>
           <Button
             className="bg-gradient-primary text-primary-foreground hover:opacity-90"
-            onClick={() =>
-              onSubmit(
-                booking.id,
-                booking.mentor_profiles.id,
-                rating,
-                reviewText
-              )
-            }
+            onClick={() => onSubmit(booking.id, booking.mentor_profiles.id, rating, reviewText)}
           >
             Submit Review
           </Button>

@@ -1,12 +1,12 @@
 export const MENTEE_ONBOARDING_QUESTIONS = [
   "Which area do you need guidance in? (Academic, Career, Business, Technology, Health, Personal, Creative, Finance, Legal, Leadership, Language, or Engineering)",
   "Briefly describe what you are struggling with or looking for help with.",
-  "What is your current education level or professional background?"
+  "What is your current education level or professional background?",
 ];
 
 export const MENTOR_ONBOARDING_QUESTIONS = [
   "What aspect of GuideMe would you like help with? (Setting availability, pricing, managing sessions, verification, or something else?)",
-  "Is there anything specific about your mentoring practice you would like guidance on?"
+  "Is there anything specific about your mentoring practice you would like guidance on?",
 ];
 
 export const getMenteeOnboardingPrompt = (userName: string) => `
@@ -96,7 +96,7 @@ STRICT RULES:
 export const getMenteeConversationPrompt = (
   userName: string,
   onboardingData: Record<string, string>,
-  mentorContext: string = ''
+  mentorContext: string = "",
 ) => `
 You are Mr.Guy-de, GuideMe's AI assistant helping
 a mentee named ${userName}.
@@ -157,7 +157,7 @@ HOW TO USE THIS MENTOR DATA:
 
 export const getMentorConversationPrompt = (
   userName: string,
-  onboardingData: Record<string, string>
+  onboardingData: Record<string, string>,
 ) => `
 You are Mr.Guy-de, GuideMe's AI assistant helping
 a mentor named ${userName}.
