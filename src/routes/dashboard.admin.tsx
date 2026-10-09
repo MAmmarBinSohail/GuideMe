@@ -148,7 +148,7 @@ function AdminDashboardContent() {
   async function loadUsers() {
     const { data } = await supabase
       .from("profiles")
-      .select("id, full_name, role, is_verified, created_at")
+      .select("id, full_name, role, is_verified, is_blocked, created_at")
       .neq("role", "admin")
       .order("created_at", { ascending: false });
     setUsers(data || []);
@@ -193,7 +193,8 @@ function AdminDashboardContent() {
         mentor_profiles (
           profiles (full_name)
         )
-      `)
+      `,
+      )
       .order("scheduled_at", { ascending: false })
       .limit(50);
     setBookings(data || []);
@@ -233,10 +234,7 @@ function AdminDashboardContent() {
   }
 
   async function deleteReview(reviewId: string, mentorId: string, mentorUserId: string) {
-    const { error } = await supabase
-      .from("reviews")
-      .delete()
-      .eq("id", reviewId);
+    const { error } = await supabase.from("reviews").delete().eq("id", reviewId);
 
     if (error) {
       toast.error("Failed to delete review.");
@@ -249,9 +247,10 @@ function AdminDashboardContent() {
       .select("rating")
       .eq("mentor_id", mentorId);
 
-    const newAvg = remaining && remaining.length > 0
-      ? remaining.reduce((s, r) => s + r.rating, 0) / remaining.length
-      : 0;
+    const newAvg =
+      remaining && remaining.length > 0
+        ? remaining.reduce((s, r) => s + r.rating, 0) / remaining.length
+        : 0;
 
     await supabase
       .from("mentor_profiles")

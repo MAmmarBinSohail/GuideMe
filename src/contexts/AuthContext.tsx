@@ -30,7 +30,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Check if user is already logged in via Supabase session
     async function loadSession() {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
 
         if (session?.user) {
           // Fetch profile from database
@@ -41,8 +43,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             .single();
 
           if (profile) {
-            // Check if user is blocked
+            console.log(
+              "loadSession profile:",
+              profile.full_name,
+              "is_blocked:",
+              profile.is_blocked,
+            );
+
             if (profile.is_blocked) {
+              console.log("loadSession: user is blocked, signing out");
               await supabase.auth.signOut();
               setUser(null);
               setLoading(false);
@@ -68,54 +77,58 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     loadSession();
 
     // Listen for auth state changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (event === "SIGNED_OUT") {
-          setUser(null);
-        }
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === "SIGNED_OUT") {
+        setUser(null);
+        return;
+      }
 
-        if (event === "SIGNED_IN" && session?.user) {
-          const { data: profile } = await supabase
-            .from("profiles")
-            .select("*")
-            .eq("id", session.user.id)
-            .single();
+      if ((event === "SIGNED_IN" || event === "TOKEN_REFRESHED") && session?.user) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("id, full_name, role, profile_picture_url, is_verified, is_blocked")
+          .eq("id", session.user.id)
+          .single();
 
-          if (profile) {
-            // Block check — sign out immediately if blocked
-            if (profile.is_blocked) {
-              await supabase.auth.signOut();
-              setUser(null);
-              return;
-            }
-
-            // Handle Google OAuth new user with no role/name
-            if (!profile.role || !profile.full_name) {
-              await supabase
-                .from("profiles")
-                .update({
-                  full_name: profile.full_name ||
-                    session.user.user_metadata?.full_name ||
-                    session.user.email?.split("@")[0],
-                  email: session.user.email,
-                })
-                .eq("id", session.user.id);
-            }
-
-            setUser({
-              id: session.user.id,
-              name: profile.full_name ||
-                session.user.user_metadata?.full_name ||
-                session.user.email?.split("@")[0] || "",
-              email: session.user.email!,
-              role: profile.role || "mentee",
-              avatar: profile.profile_picture_url ||
-                session.user.user_metadata?.avatar_url || undefined,
-            });
+        if (profile) {
+          if (profile.is_blocked) {
+            console.log("Blocked user detected, signing out");
+            setUser(null);
+            await supabase.auth.signOut();
+            return;
           }
+
+          // Handle Google OAuth new user with no role/name
+          if (!profile.role || !profile.full_name) {
+            await supabase
+              .from("profiles")
+              .update({
+                full_name:
+                  profile.full_name ||
+                  session.user.user_metadata?.full_name ||
+                  session.user.email?.split("@")[0],
+                email: session.user.email,
+              })
+              .eq("id", session.user.id);
+          }
+
+          setUser({
+            id: session.user.id,
+            name:
+              profile.full_name ||
+              session.user.user_metadata?.full_name ||
+              session.user.email?.split("@")[0] ||
+              "",
+            email: session.user.email!,
+            role: profile.role || "mentee",
+            avatar:
+              profile.profile_picture_url || session.user.user_metadata?.avatar_url || undefined,
+          });
         }
       }
-    );
+    });
 
     // Cleanup subscription on unmount
     return () => {

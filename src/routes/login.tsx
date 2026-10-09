@@ -69,10 +69,10 @@ function LoginPage() {
         return;
       }
 
-      // Step 2 - Fetch user profile to get role
+      // Step 2 - Fetch user profile to get role and block status
       const { data: profile, error: profileError } = await supabase
         .from("profiles")
-        .select("*")
+        .select("id, full_name, role, is_blocked") // Add is_blocked here
         .eq("id", data.user.id)
         .single();
 
@@ -82,6 +82,14 @@ function LoginPage() {
         return;
       }
 
+      // Check if blocked immediately
+      if (profile.is_blocked) {
+        toast.error("Your account has been blocked by an administrator.");
+        await supabase.auth.signOut(); // Sign out of Supabase session
+        setLoading(false);
+        return; // Stop the execution here!
+      }
+
       // Step 3 - Update local auth context with real data
       login({
         id: data.user.id,
@@ -89,6 +97,7 @@ function LoginPage() {
         email: data.user.email!,
         role: profile.role,
       });
+
 
       toast.success("Welcome back!");
 
